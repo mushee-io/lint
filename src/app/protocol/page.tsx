@@ -23,6 +23,7 @@ export default async function Protocol() {
 
   const links = [
     ["Monitored markets", "/protocol/markets", true],
+    ["Production validation", "/protocol/validation", false],
     ["Guard history", "/protocol/guard", false],
     ["Watch", "/protocol/watch", false],
     ["Signals", "/protocol/signals", false],
