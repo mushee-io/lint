@@ -1,7 +1,7 @@
-import crypto from "node:crypto";
 import { Prisma } from "@/generated/prisma/client";
 import { fetchManifoldRecords } from "@/integrations/manifold";
 import { fetchPolymarketRecords } from "@/integrations/polymarket";
+import { deterministicCanonicalEventId, resolveCanonicalEvent } from "@/lib/canonical";
 import { prisma } from "@/lib/db";
 import { Market } from "@/lib/market-types";
 
@@ -31,10 +31,7 @@ function probability(prices: number[]) {
   return typeof first === "number" && Number.isFinite(first) ? first : null;
 }
 
-export function canonicalEventId(title: string) {
-  const normalized = title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-  return `ce_${crypto.createHash("sha256").update(normalized).digest("hex").slice(0, 24)}`;
-}
+export const canonicalEventId = deterministicCanonicalEventId;
 
 export async function ingestSource(config: IngestionSourceConfig, limit = 25) {
   const attempt = new Date();
@@ -48,14 +45,14 @@ export async function ingestSource(config: IngestionSourceConfig, limit = 25) {
     const batch = await config.fetchRecords(limit);
     let snapshotsCreated = 0;
     let provenanceCreated = 0;
+    let canonicalAutoLinks = 0;
+    let canonicalReviewCandidates = 0;
 
     for (const record of batch.records) {
-      const eventId = canonicalEventId(record.market.title);
-      await prisma.canonicalEvent.upsert({
-        where: { id: eventId },
-        update: { title: record.market.title },
-        create: { id: eventId, title: record.market.title, description: record.market.description || null },
-      });
+      const canonical = await resolveCanonicalEvent(record.market.title, record.market.description, config.protocolName);
+      const eventId = canonical.eventId;
+      if (canonical.mode === "AUTO_LINK") canonicalAutoLinks += 1;
+      if (canonical.mode === "REVIEW_CANDIDATE") canonicalReviewCandidates += 1;
 
       const stored = await prisma.market.upsert({
         where: { protocolName_externalId: { protocolName: config.protocolName, externalId: record.market.externalId } },
@@ -143,6 +140,8 @@ export async function ingestSource(config: IngestionSourceConfig, limit = 25) {
       marketsProcessed: batch.records.length,
       snapshotsCreated,
       provenanceCreated,
+      canonicalAutoLinks,
+      canonicalReviewCandidates,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown ingestion failure";
