@@ -50,6 +50,8 @@ jobs:
         run: npm test
       - name: Live Polymarket persistence smoke
         run: npx tsx scripts/live-polymarket-smoke.ts
+      - name: Durable P0 integration smoke
+        run: npx tsx scripts/p0-integration-smoke.ts
       - name: Production build
         env:
           NODE_ENV: production
