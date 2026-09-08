@@ -48,10 +48,25 @@ jobs:
         run: npm run lint
       - name: Unit tests
         run: npm test
+      - name: Production dependency audit
+        run: npm run security:audit
+      - name: Full dependency audit report
+        continue-on-error: true
+        run: npm audit --audit-level=high
       - name: Live Polymarket persistence smoke
-        run: npx tsx scripts/live-polymarket-smoke.ts
+        run: npm run smoke:polymarket
+      - name: Live Manifold persistence smoke
+        run: npm run smoke:manifold
       - name: Durable P0 integration smoke
         run: npx tsx scripts/p0-integration-smoke.ts
+      - name: Failure and recovery smoke
+        run: npm run smoke:resilience
+      - name: Short worker soak
+        env:
+          SOAK_CYCLES: 2
+          SOAK_INTERVAL_MS: 1000
+          SOAK_SIMULATE_MINUTES: 1
+        run: npm run soak:worker
       - name: Production build
         env:
           NODE_ENV: production
