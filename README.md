@@ -41,3 +41,11 @@ Open `/explore` to inspect seeded normalized markets across Mock, Rain, and Gene
 Visit `/protocol` for the infrastructure dashboard and `/protocol/demo` for the Rain simulation. The simulator can trigger deterministic whale-trade, liquidity-exit, and volume-burst checks for the seeded `rain-eth-10k` market. Protocol endpoints include `POST /api/v1/guard`, `POST /api/v1/watch`, `GET /api/v1/watch/:marketId`, `GET /api/v1/events/:id/divergence`, and `GET /api/v1/markets/:id/resolution-readiness`.
 
 The demo intentionally keeps watch state and webhook delivery simulation in memory. The Prisma schema includes the production persistence models for snapshots, organizations/API keys, risk configurations, resolution sources, and webhook subscriptions/deliveries.
+
+## License
+
+Market Lint is licensed under the [Apache License 2.0](LICENSE).
+
+Copyright 2026 Mushee.
+
+The Market Lint name, logos, branding, and visual identity are not granted under the Apache License 2.0 and remain the property of Mushee.
