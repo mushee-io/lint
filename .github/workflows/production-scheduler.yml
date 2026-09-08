@@ -1,0 +1,85 @@
+name: Market Lint Production Scheduler
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+  push:
+    branches: ["master"]
+    paths:
+      - ".github/workflows/production-scheduler.yml"
+      - "src/app/api/internal/scheduler/**"
+      - "src/app/api/internal/validation/**"
+      - "src/lib/scheduler-auth.ts"
+      - "src/lib/validation.ts"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: market-lint-production-scheduler
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MARKET_LINT_BASE_URL: https://lint-chi.vercel.app
+    steps:
+      - name: Run production scheduler tick
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          OIDC_RESPONSE=$(curl --fail --silent --show-error \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=market-lint-scheduler")
+          OIDC_TOKEN=$(printf '%s' "$OIDC_RESPONSE" | jq -r '.value')
+          if [ -z "$OIDC_TOKEN" ] || [ "$OIDC_TOKEN" = "null" ]; then
+            echo "Unable to obtain GitHub OIDC token"
+            exit 1
+          fi
+
+          STATUS=000
+          for ATTEMPT in $(seq 1 18); do
+            STATUS=$(curl --silent --show-error \
+              --output scheduler-response.json \
+              --write-out "%{http_code}" \
+              --request POST \
+              --header "Authorization: Bearer ${OIDC_TOKEN}" \
+              --header "Content-Type: application/json" \
+              --data '{"maxJobs":50}' \
+              "${MARKET_LINT_BASE_URL}/api/internal/scheduler" || true)
+
+            if [ "$STATUS" = "200" ]; then
+              break
+            fi
+
+            echo "Scheduler endpoint returned HTTP ${STATUS}; retrying (${ATTEMPT}/18)..."
+            cat scheduler-response.json 2>/dev/null || true
+            sleep 20
+          done
+
+          cat scheduler-response.json | jq .
+          if [ "$STATUS" != "200" ]; then
+            echo "Production scheduler failed after retries"
+            exit 1
+          fi
+
+          VALIDATION_STATUS=$(curl --silent --show-error \
+            --output validation-response.json \
+            --write-out "%{http_code}" \
+            --header "Authorization: Bearer ${OIDC_TOKEN}" \
+            "${MARKET_LINT_BASE_URL}/api/internal/validation" || true)
+
+          if [ "$VALIDATION_STATUS" = "200" ]; then
+            echo '### Production validation' >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            jq '{validation: .data.validation, scheduler: .data.scheduler, data: .data.data, workers: .data.workers, webhooks: .data.webhooks}' validation-response.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Validation endpoint returned HTTP ${VALIDATION_STATUS}"
+            cat validation-response.json 2>/dev/null || true
+          fi
