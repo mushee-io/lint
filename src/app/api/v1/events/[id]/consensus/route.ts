@@ -1,0 +1,1 @@
+import { bad,ok } from "@/lib/api"; import { consensus } from "@/lib/network"; import { events } from "@/lib/graph"; export function GET(_:Request,{params}:{params:Promise<{id:string}>}){return params.then(({id})=>events.some(e=>e.id===id)?ok(consensus(id)):bad("Event not found",404))}

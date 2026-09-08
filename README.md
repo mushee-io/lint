@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Market Lint
 
-## Getting Started
+An editorial-quality intelligence layer for prediction markets. Submit market wording and receive a structured report on resolution clarity, ambiguity, improvement opportunities, and source quality.
 
-First, run the development server:
+## Run locally
 
 ```bash
+npm install
+copy .env.example .env
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`. The app works without an API key using a deterministic report fixture. Set `OPENAI_API_KEY` to receive a live structured response from OpenAI.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Database
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Postgres and Prisma are configured in `prisma/schema.prisma`. Start Postgres with `docker compose up db`, then run `npx prisma migrate dev` after copying `.env.example`.
 
-## Learn More
+## Docker
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+docker compose up --build
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Quality checks
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run lint
+npm run test
+npm run build
+```
 
-## Deploy on Vercel
+## Market Graph demo
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Open `/explore` to inspect seeded normalized markets across Mock, Rain, and Generic adapters. The Ethereum fixtures demonstrate a canonical event with related-but-not-identical markets. Use `POST /api/v1/search`, `/api/v1/duplicates`, or `/api/v1/analyze` for the programmatic demo. The OpenAPI description is available at `/openapi.json`; the small SDK source is in `packages/sdk`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`embedding` is represented as a pgvector column in the production schema. Demo semantic search uses transparent token similarity so it runs without external infrastructure; a production ingestion worker can populate OpenAI embeddings and query the same column.
+
+## Protocol Intelligence demo
+
+Visit `/protocol` for the infrastructure dashboard and `/protocol/demo` for the Rain simulation. The simulator can trigger deterministic whale-trade, liquidity-exit, and volume-burst checks for the seeded `rain-eth-10k` market. Protocol endpoints include `POST /api/v1/guard`, `POST /api/v1/watch`, `GET /api/v1/watch/:marketId`, `GET /api/v1/events/:id/divergence`, and `GET /api/v1/markets/:id/resolution-readiness`.
+
+The demo intentionally keeps watch state and webhook delivery simulation in memory. The Prisma schema includes the production persistence models for snapshots, organizations/API keys, risk configurations, resolution sources, and webhook subscriptions/deliveries.

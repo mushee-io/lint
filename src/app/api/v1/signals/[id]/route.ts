@@ -1,0 +1,1 @@
+import { bad,ok } from "@/lib/api"; import { signals } from "@/lib/network"; export function GET(_:Request,{params}:{params:Promise<{id:string}>}){return params.then(({id})=>{const s=signals().find(x=>x.signalId===id);return s?ok(s):bad("Signal not found",404)})}

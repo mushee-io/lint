@@ -1,0 +1,1 @@
+import { bad,ok } from "@/lib/api"; import { guard } from "@/lib/risk"; export async function POST(r:Request){try{const b=await r.json();return b.title?ok(guard(b)):bad("title is required")}catch{return bad("Invalid JSON")}}

@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: marketlint
+      POSTGRES_USER: marketlint
+      POSTGRES_PASSWORD: marketlint
+    ports: ["5432:5432"]
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://marketlint:marketlint@db:5432/marketlint
+    ports: ["3000:3000"]
+    depends_on: [db]
+volumes: { postgres_data: {} }

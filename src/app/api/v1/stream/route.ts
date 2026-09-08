@@ -1,0 +1,1 @@
+import { signals } from "@/lib/network"; export const dynamic="force-dynamic"; export async function GET(){const body=`event: signal\ndata: ${JSON.stringify(signals())}\n\n`;return new Response(body,{headers:{"Content-Type":"text/event-stream","Cache-Control":"no-cache","Connection":"keep-alive"}})}

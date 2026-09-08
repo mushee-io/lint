@@ -1,0 +1,1 @@
+import { bad,ok } from "@/lib/api"; import { graph } from "@/lib/network"; export function GET(_:Request,{params}:{params:Promise<{id:string}>}){return params.then(({id})=>{const d=graph(id);return d?ok(d):bad("Event not found",404)})}

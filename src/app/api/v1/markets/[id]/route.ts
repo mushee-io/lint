@@ -1,0 +1,1 @@
+import { markets } from "@/lib/graph"; import { bad,ok } from "@/lib/api"; export function GET(_:Request,{params}:{params:Promise<{id:string}>}){return params.then(({id})=>{const m=markets.find(x=>x.id===id);return m?ok(m):bad("Market not found",404)})}

@@ -1,0 +1,1 @@
+import { events } from "@/lib/graph"; import { bad,ok } from "@/lib/api"; import { divergence } from "@/lib/risk"; export function GET(_:Request,{params}:{params:Promise<{id:string}>}){return params.then(({id})=>events.some(x=>x.id===id)?ok(divergence(id)):bad("Event not found",404))}

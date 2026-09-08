@@ -1,0 +1,10 @@
+import { describe, expect, it } from "vitest";
+import { stubReport } from "./report";
+import { duplicates, search } from "./graph";
+import { evaluate, guard, health, readiness, watch, webhookSignature } from "./risk";
+import { markets } from "./fixtures";
+import { consensus, universalId } from "./network";
+describe("stubReport", () => { it("has a valid quality score and actionable sections", () => { expect(stubReport.qualityScore).toBeGreaterThanOrEqual(0); expect(stubReport.qualityScore).toBeLessThanOrEqual(100); expect(stubReport.ambiguityNotes.length).toBeGreaterThan(0); expect(stubReport.resolutionSources.length).toBeGreaterThan(0); }); });
+describe("market graph", () => { it("finds related Ethereum markets and flags exact proposal risk", () => { expect(search("Will ETH hit 10k in 2026?").length).toBeGreaterThan(1); expect(duplicates({title:"Will Ethereum reach $10,000 by the end of 2026?"}).duplicateRisk).toBe("HIGH"); }); });
+describe("risk engine", () => { it("detects a whale probability move and makes explainable guard decisions", () => { const market=markets[0]; const before=watch(market).snapshots.at(-1)!; expect(evaluate(market,{probability:before.probability+.3,liquidity:before.liquidity,volume:before.volume+1}).some(s=>s.type==="PRICE_ANOMALY")).toBe(true); expect(health(market).overall).toBeLessThan(100); expect(guard({title:market.title,resolutionSource:"http://127.0.0.1"}).decision).toBe("BLOCK"); expect(readiness(market).status).toBe("READY"); expect(webhookSignature("a","b")).toHaveLength(64); }); });
+describe("network intelligence",()=>{it("creates stable universal IDs and auditable consensus",()=>{expect(universalId(markets[0]).marketLintId).toMatch(/^mlm_/);const c=consensus("event-eth-2026");expect(c.marketCount).toBeGreaterThan(1);expect(c.inputs).toHaveLength(c.marketCount);});});

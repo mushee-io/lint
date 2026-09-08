@@ -1,0 +1,1 @@
+import { bad,ok } from "@/lib/api"; import { ask } from "@/lib/network"; export async function POST(r:Request){try{const {question}=await r.json();return typeof question==="string"&&question.length<2000?ok(ask(question)):bad("question is required and must be under 2000 characters")}catch{return bad("Invalid JSON")}}

@@ -1,0 +1,1 @@
+import { NextResponse } from "next/server"; import { fetchPolymarketMarkets } from "@/integrations/polymarket"; export async function GET(){try{return NextResponse.json({data:await fetchPolymarketMarkets()})}catch(e){return NextResponse.json({error:{message:"Live Polymarket ingestion unavailable",detail:e instanceof Error?e.message:"Unknown upstream error"}},{status:503})}}

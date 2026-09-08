@@ -1,0 +1,1 @@
+import { bad,ok } from "@/lib/api"; import { search } from "@/lib/graph"; export async function POST(r:Request){try{const {query}=await r.json();return typeof query==="string"&&query.trim()?ok(search(query)):bad("query is required")}catch{return bad("Invalid JSON")}}

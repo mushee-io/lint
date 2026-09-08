@@ -1,0 +1,1 @@
+import { events,markets } from "@/lib/graph"; import { bad,ok } from "@/lib/api"; export function GET(_:Request,{params}:{params:Promise<{id:string}>}){return params.then(({id})=>{const event=events.find(x=>x.id===id);return event?ok({...event,markets:markets.filter(m=>m.canonicalEventId===event.id)}):bad("Event not found",404)})}

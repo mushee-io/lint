@@ -1,0 +1,1 @@
+import { bad,ok } from "@/lib/api"; import { duplicates } from "@/lib/graph"; export async function POST(r:Request){try{const body=await r.json();return body.title?ok(duplicates(body)):bad("title is required")}catch{return bad("Invalid JSON")}}

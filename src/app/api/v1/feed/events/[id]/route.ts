@@ -1,0 +1,1 @@
+import { bad,ok } from "@/lib/api"; import { feed } from "@/lib/network"; export function GET(_:Request,{params}:{params:Promise<{id:string}>}){return params.then(({id})=>{const f=feed(id);return f?ok(f):bad("Event not found",404)})}
