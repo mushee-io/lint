@@ -67,6 +67,8 @@ jobs:
           SOAK_INTERVAL_MS: 1000
           SOAK_SIMULATE_MINUTES: 1
         run: npm run soak:worker
+      - name: Pilot preflight
+        run: npm run pilot:preflight
       - name: Production build
         env:
           NODE_ENV: production
