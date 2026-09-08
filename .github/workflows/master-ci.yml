@@ -1,0 +1,73 @@
+name: Market Lint CI
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: marketlint
+          POSTGRES_USER: marketlint
+          POSTGRES_PASSWORD: marketlint
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U marketlint -d marketlint"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://marketlint:marketlint@localhost:5432/marketlint
+      WEBHOOK_ENCRYPTION_KEY: ci-webhook-encryption-key
+      WORKER_SECRET: ci-worker-secret
+      BOOTSTRAP_SECRET: ci-bootstrap-secret
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Prisma generate
+        run: npx prisma generate
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+      - name: Migration status
+        run: npx prisma migrate status
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests
+        run: npm test
+      - name: Production dependency audit
+        run: npm run security:audit
+      - name: Live Polymarket persistence smoke
+        run: npm run smoke:polymarket
+      - name: Live Manifold persistence smoke
+        run: npm run smoke:manifold
+      - name: Durable P0 integration smoke
+        run: npx tsx scripts/p0-integration-smoke.ts
+      - name: Failure and recovery smoke
+        run: npm run smoke:resilience
+      - name: Short worker soak
+        env:
+          SOAK_CYCLES: 2
+          SOAK_INTERVAL_MS: 1000
+          SOAK_SIMULATE_MINUTES: 1
+        run: npm run soak:worker
+      - name: Pilot preflight
+        run: npm run pilot:preflight
+      - name: Production build
+        env:
+          NODE_ENV: production
+        run: npm run build
