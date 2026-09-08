@@ -41,7 +41,7 @@ function privateAddress(value: string) {
 
 export async function validateWebhookUrl(raw: string, allowPrivate = process.env.NODE_ENV !== "production") {
   const url = new URL(raw);
-  if (!['http:', 'https:'].includes(url.protocol)) throw new Error("Webhook URL must use HTTP or HTTPS");
+  if (!["http:", "https:"].includes(url.protocol)) throw new Error("Webhook URL must use HTTP or HTTPS");
   if (url.username || url.password) throw new Error("Webhook URLs may not contain credentials");
   if (process.env.NODE_ENV === "production" && url.protocol !== "https:") throw new Error("Production webhooks require HTTPS");
   if (!allowPrivate) {
@@ -104,7 +104,16 @@ export async function enqueueSignalDeliveries(signal: { id: string; organization
   return { queued };
 }
 
-export async function deliverPendingWebhooks(limit = 25) {
+export async function replayWebhookDelivery(deliveryId: string, organizationId: string) {
+  const delivery = await prisma.webhookDelivery.findFirst({ where: { id: deliveryId, endpoint: { organizationId } } });
+  if (!delivery) return null;
+  return prisma.webhookDelivery.update({
+    where: { id: delivery.id },
+    data: { status: "RETRYING", nextAttemptAt: new Date(), lastError: null },
+  });
+}
+
+export async function deliverPendingWebhooks(limit = 25, fetchImpl: typeof fetch = fetch) {
   const now = new Date();
   const deliveries = await prisma.webhookDelivery.findMany({
     where: { status: { in: ["PENDING", "RETRYING"] }, nextAttemptAt: { lte: now } },
@@ -128,7 +137,7 @@ export async function deliverPendingWebhooks(limit = 25) {
       const timer = setTimeout(() => controller.abort(), 7_000);
       let response: Response;
       try {
-        response = await fetch(target, {
+        response = await fetchImpl(target, {
           method: "POST",
           redirect: "manual",
           signal: controller.signal,
