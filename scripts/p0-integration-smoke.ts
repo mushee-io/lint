@@ -81,14 +81,12 @@ async function main() {
     prisma.protocol.create({ data: { organizationId: orgA.id, name: "Polymarket", status: "LIVE_TEST", sourceName: "polymarket-gamma" } }),
     prisma.protocol.create({ data: { organizationId: orgB.id, name: "Private B", status: "SANDBOX" } }),
   ]);
-  const [keyA, keyB] = await Promise.all([
-    createApiKey({ organizationId: orgA.id, protocolId: protocolA.id, permissions: ["*"], label: "P0 A" }),
-    createApiKey({ organizationId: orgB.id, protocolId: protocolB.id, permissions: ["*"], label: "P0 B" }),
-  ]);
+  const keyA = await createApiKey({ organizationId: orgA.id, permissions: ["*"], label: "P0 org-level key" });
   assert.notEqual(keyA.key.hash, keyA.secret, "Raw API key was stored instead of a hash");
 
   const contextA = await requireAccess(apiRequest("http://localhost/access", keyA.secret), { permission: "protocols:read" });
   assert.equal(contextA.organizationId, orgA.id);
+  assert.equal(contextA.protocolId, null);
   await assert.rejects(
     requireAccess(new Request("http://localhost/access", { headers: { "x-marketlint-user-id": userB.id, "x-marketlint-organization-id": orgB.id } }), { minimumRole: "ADMIN" }),
     /ADMIN role or higher required/,
@@ -106,8 +104,9 @@ async function main() {
     body: JSON.stringify({ marketId: market.id, protocolId: protocolA.id }),
   }));
   assert.equal(watchResponse.status, 201);
-  const watchPayload = await watchResponse.json() as { data: { id: string; organizationId: string } };
+  const watchPayload = await watchResponse.json() as { data: { id: string; organizationId: string; protocolId: string } };
   assert.equal(watchPayload.data.organizationId, orgA.id);
+  assert.equal(watchPayload.data.protocolId, protocolA.id);
 
   const crossTenantWatch = await createWatch(apiRequest("http://localhost/api/v1/watch", keyA.secret, {
     method: "POST",
@@ -123,10 +122,11 @@ async function main() {
       outcomes: market.outcomes,
       resolutionSource: market.resolutionSource ?? "https://polymarket.com",
       marketId: market.id,
+      protocolId: protocolA.id,
     }),
   }));
   assert.equal(guardResponse.status, 200);
-  const guardCount = await prisma.guardEvaluation.count({ where: { organizationId: orgA.id, marketId: market.id } });
+  const guardCount = await prisma.guardEvaluation.count({ where: { organizationId: orgA.id, marketId: market.id, protocolId: protocolA.id } });
   assert(guardCount > 0, "Guard evaluation was not persisted");
 
   await refreshConsensus();
