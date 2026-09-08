@@ -13,7 +13,7 @@ async function runSchedulerTick(request: Request) {
   const startedAt = new Date();
   try {
     const body = request.method === "POST" ? await request.json().catch(() => ({})) : {};
-    const maxJobs = Math.min(Math.max(Number((body as { maxJobs?: number }).maxJobs) || 50, 1), 100);
+    const maxJobs = Math.min(Math.max(Number((body as { maxJobs?: number }).maxJobs) || 10, 1), 12);
     const jobs = await runWorkerBatch(maxJobs);
     const [ops, markets, snapshots, provenance, guardEvaluations, signals, consensusSnapshots] = await Promise.all([
       getOpsStatus(),
