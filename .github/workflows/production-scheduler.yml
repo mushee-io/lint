@@ -10,6 +10,7 @@ on:
       - ".github/workflows/production-scheduler.yml"
       - "src/app/api/internal/scheduler/**"
       - "src/app/api/internal/validation/**"
+      - "src/lib/jobs.ts"
       - "src/lib/scheduler-auth.ts"
       - "src/lib/validation.ts"
 
@@ -43,23 +44,24 @@ jobs:
           fi
 
           STATUS=000
-          for ATTEMPT in $(seq 1 18); do
+          for ATTEMPT in $(seq 1 12); do
             STATUS=$(curl --silent --show-error \
+              --max-time 75 \
               --output scheduler-response.json \
               --write-out "%{http_code}" \
               --request POST \
               --header "Authorization: Bearer ${OIDC_TOKEN}" \
               --header "Content-Type: application/json" \
-              --data '{"maxJobs":50}' \
+              --data '{"maxJobs":10}' \
               "${MARKET_LINT_BASE_URL}/api/internal/scheduler" || true)
 
             if [ "$STATUS" = "200" ]; then
               break
             fi
 
-            echo "Scheduler endpoint returned HTTP ${STATUS}; retrying (${ATTEMPT}/18)..."
+            echo "Scheduler endpoint returned HTTP ${STATUS}; retrying (${ATTEMPT}/12)..."
             cat scheduler-response.json 2>/dev/null || true
-            sleep 20
+            sleep 15
           done
 
           cat scheduler-response.json | jq .
@@ -69,6 +71,7 @@ jobs:
           fi
 
           VALIDATION_STATUS=$(curl --silent --show-error \
+            --max-time 30 \
             --output validation-response.json \
             --write-out "%{http_code}" \
             --header "Authorization: Bearer ${OIDC_TOKEN}" \
