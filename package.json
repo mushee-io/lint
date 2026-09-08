@@ -15,6 +15,7 @@
     "smoke:manifold": "tsx scripts/live-manifold-smoke.ts",
     "smoke:resilience": "tsx scripts/resilience-smoke.ts",
     "soak:worker": "tsx scripts/worker-soak.ts",
+    "pilot:preflight": "tsx scripts/pilot-preflight.ts",
     "security:audit": "node scripts/security-audit.mjs",
     "db:generate": "prisma generate",
     "db:dev": "prisma migrate dev",
