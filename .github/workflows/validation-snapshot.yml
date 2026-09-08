@@ -1,0 +1,44 @@
+name: Market Lint Validation Snapshot
+
+on:
+  schedule:
+    - cron: "17 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      MARKET_LINT_BASE_URL: https://lint-chi.vercel.app
+    steps:
+      - name: Capture validation snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          OIDC_RESPONSE=$(curl --fail --silent --show-error \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=market-lint-scheduler")
+          OIDC_TOKEN=$(printf '%s' "$OIDC_RESPONSE" | jq -r '.value')
+
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer ${OIDC_TOKEN}" \
+            "${MARKET_LINT_BASE_URL}/api/internal/validation" \
+            --output validation.json
+
+          cat validation.json | jq .
+          echo '### Market Lint 24-72h validation snapshot' >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          jq '{generatedAt: .data.generatedAt, validation: .data.validation, scheduler: .data.scheduler, sources: .data.sources, data: .data.data, workers: .data.workers, webhooks: .data.webhooks}' validation.json >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload validation evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: market-lint-validation-${{ github.run_id }}
+          path: validation.json
+          retention-days: 7
