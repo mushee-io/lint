@@ -33,21 +33,72 @@ enum PilotStatus {
   ENDED
 }
 
+enum GuardDecision {
+  ALLOW
+  REVIEW
+  BLOCK
+}
+
+enum SignalSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ConsensusStatus {
+  READY
+  INSUFFICIENT_DATA
+  STALE
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  RETRYING
+  DELIVERED
+  DEAD_LETTER
+}
+
+enum WorkerJobStatus {
+  PENDING
+  RUNNING
+  RETRY
+  SUCCEEDED
+  DEAD_LETTER
+}
+
+enum FeedbackLabel {
+  USEFUL
+  EXPECTED
+  FALSE_POSITIVE
+  FALSE_NEGATIVE
+  AGREE
+  DISAGREE
+  UNCERTAIN
+}
+
 model Organization {
-  id          String                   @id @default(cuid())
-  name        String
-  createdAt   DateTime                 @default(now())
-  memberships OrganizationMembership[]
-  protocols   Protocol[]
-  apiKeys     ApiKey[]
-  pilots      Pilot[]
-  watches     WatchRegistration[]
-  feedback    Feedback[]
+  id               String                   @id @default(cuid())
+  name             String
+  slug             String                   @unique
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  memberships      OrganizationMembership[]
+  protocols        Protocol[]
+  apiKeys          ApiKey[]
+  pilots           Pilot[]
+  watches          WatchRegistration[]
+  feedback         Feedback[]
+  guardEvaluations GuardEvaluation[]
+  riskSignals      RiskSignal[]
+  webhookEndpoints WebhookEndpoint[]
+  auditLogs        AuditLog[]
 }
 
 model User {
   id          String                   @id @default(cuid())
   email       String                   @unique
+  createdAt   DateTime                 @default(now())
   memberships OrganizationMembership[]
 }
 
@@ -56,42 +107,60 @@ model OrganizationMembership {
   organizationId String
   userId         String
   role           OrganizationRole
+  createdAt      DateTime         @default(now())
   organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, userId])
+  @@index([userId])
 }
 
 model Protocol {
-  id             String              @id @default(cuid())
-  organizationId String
-  name           String
-  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  apiKeys        ApiKey[]
-  watches        WatchRegistration[]
-  pilots         Pilot[]
+  id               String              @id @default(cuid())
+  organizationId   String
+  name             String
+  externalId       String?
+  sourceName       String?
+  status           String              @default("SANDBOX")
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apiKeys          ApiKey[]
+  watches          WatchRegistration[]
+  pilots           Pilot[]
+  guardEvaluations GuardEvaluation[]
 
   @@unique([organizationId, name])
+  @@index([organizationId])
 }
 
 model ApiKey {
   id             String       @id @default(cuid())
   organizationId String
   prefix         String       @unique
-  hash           String
+  hash           String       @unique
+  label          String?
   permissions    String[]
   environment    String       @default("sandbox")
   revokedAt      DateTime?
+  lastUsedAt     DateTime?
+  createdAt      DateTime     @default(now())
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  protocol       Protocol?    @relation(fields: [protocolId], references: [id])
+  protocol       Protocol?    @relation(fields: [protocolId], references: [id], onDelete: SetNull)
   protocolId     String?
+
+  @@index([organizationId])
+  @@index([protocolId])
 }
 
 model CanonicalEvent {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  markets     Market[]
+  id                 String              @id @default(cuid())
+  title              String
+  description        String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  markets            Market[]
+  consensusSnapshots ConsensusSnapshot[]
 }
 
 model Market {
@@ -107,24 +176,36 @@ model Market {
   volume           Float?
   resolutionSource String?
   freshness        FreshnessStatus     @default(UNKNOWN)
+  sourceTimestamp  DateTime?
+  lastIngestedAt   DateTime            @default(now())
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
   canonicalEventId String?
-  canonicalEvent   CanonicalEvent?     @relation(fields: [canonicalEventId], references: [id])
+  canonicalEvent   CanonicalEvent?     @relation(fields: [canonicalEventId], references: [id], onDelete: SetNull)
   snapshots        MarketSnapshot[]
   provenance       DataProvenance[]
   watches          WatchRegistration[]
+  riskSignals      RiskSignal[]
+  guardEvaluations GuardEvaluation[]
 
   @@unique([protocolName, externalId])
+  @@index([canonicalEventId])
+  @@index([freshness])
+  @@index([lastIngestedAt])
 }
 
 model MarketSnapshot {
-  id            String   @id @default(cuid())
-  marketId      String
-  timestamp     DateTime @default(now())
-  probability   Float?
-  outcomePrices Json?
-  liquidity     Float?
-  volume        Float?
-  market        Market   @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  id             String          @id @default(cuid())
+  marketId       String
+  timestamp      DateTime        @default(now())
+  sourceTimestamp DateTime?
+  probability    Float?
+  outcomePrices  Json?
+  liquidity      Float?
+  volume         Float?
+  freshness      FreshnessStatus @default(FRESH)
+  rawPayloadHash String?
+  market         Market          @relation(fields: [marketId], references: [id], onDelete: Cascade)
 
   @@index([marketId, timestamp])
 }
@@ -135,9 +216,13 @@ model DataProvenance {
   source               String
   externalMarketId     String
   retrievedAt          DateTime
+  sourceTimestamp      DateTime?
   rawPayloadHash       String
   normalizationVersion String
   market               Market   @relation(fields: [marketId], references: [id], onDelete: Cascade)
+
+  @@unique([marketId, rawPayloadHash])
+  @@index([source, retrievedAt])
 }
 
 model EventRelationship {
@@ -148,35 +233,236 @@ model EventRelationship {
   confidence       Float
   reason           String
   createdAt        DateTime @default(now())
+
+  @@index([sourceEventId])
+  @@index([targetEventId])
 }
 
 model WatchRegistration {
-  id             String       @id @default(cuid())
-  organizationId String
-  protocolId     String
-  marketId       String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  protocol       Protocol     @relation(fields: [protocolId], references: [id], onDelete: Cascade)
-  market         Market       @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  id              String       @id @default(cuid())
+  organizationId  String
+  protocolId      String
+  marketId        String
+  active          Boolean      @default(true)
+  lastEvaluatedAt DateTime?
+  lastSnapshotId  String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  protocol        Protocol     @relation(fields: [protocolId], references: [id], onDelete: Cascade)
+  market          Market       @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  riskSignals     RiskSignal[]
 
   @@unique([organizationId, marketId])
+  @@index([protocolId])
+  @@index([active])
 }
 
 model Pilot {
   id             String       @id @default(cuid())
   organizationId String
   protocolId     String
+  name           String?
   status         PilotStatus  @default(INVITED)
+  startedAt      DateTime?
+  endedAt        DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   protocol       Protocol     @relation(fields: [protocolId], references: [id], onDelete: Cascade)
+  metrics        PilotMetric[]
+  reports        PilotReport[]
+
+  @@index([organizationId, status])
 }
 
 model Feedback {
-  id             String       @id @default(cuid())
-  organizationId String
-  targetType     String
-  targetId       String
-  label          String
-  comment        String?
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id               String        @id @default(cuid())
+  organizationId   String
+  targetType       String
+  targetId         String
+  label            FeedbackLabel
+  comment          String?
+  algorithmVersion String?
+  createdAt        DateTime      @default(now())
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, targetType, targetId])
+}
+
+model GuardEvaluation {
+  id               String        @id @default(cuid())
+  organizationId   String?
+  protocolId       String?
+  marketId         String?
+  decision         GuardDecision
+  marketLintScore  Int
+  duplicateRisk    String
+  ambiguityRisk    String
+  resolutionRisk   String
+  manipulationRisk String
+  warnings         Json?
+  reasons          Json?
+  evidence         Json?
+  algorithmVersion String        @default("guard-v1")
+  createdAt        DateTime      @default(now())
+  organization     Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  protocol         Protocol?     @relation(fields: [protocolId], references: [id], onDelete: SetNull)
+  market           Market?       @relation(fields: [marketId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([marketId, createdAt])
+}
+
+model RiskSignal {
+  id                String             @id @default(cuid())
+  organizationId    String?
+  watchId           String?
+  marketId          String?
+  eventId           String?
+  type              String
+  severity          SignalSeverity
+  confidence        Float
+  explanation       String
+  evidence          Json
+  recommendedAction String
+  algorithmVersion  String             @default("risk-v1")
+  dedupeKey         String             @unique
+  detectedAt        DateTime           @default(now())
+  createdAt         DateTime           @default(now())
+  organization      Organization?      @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  watch             WatchRegistration? @relation(fields: [watchId], references: [id], onDelete: SetNull)
+  market            Market?            @relation(fields: [marketId], references: [id], onDelete: SetNull)
+  webhookDeliveries WebhookDelivery[]
+
+  @@index([organizationId, detectedAt])
+  @@index([marketId, detectedAt])
+  @@index([eventId, detectedAt])
+}
+
+model ConsensusSnapshot {
+  id                   String          @id @default(cuid())
+  canonicalEventId     String
+  status               ConsensusStatus
+  probability          Float?
+  confidence           String
+  eventConfidenceScore Int?
+  marketCount          Int
+  protocolCount        Int
+  dispersion           Float?
+  inputs               Json
+  algorithmVersion     String          @default("consensus-v1")
+  createdAt            DateTime        @default(now())
+  canonicalEvent       CanonicalEvent  @relation(fields: [canonicalEventId], references: [id], onDelete: Cascade)
+
+  @@index([canonicalEventId, createdAt])
+}
+
+model DataSourceState {
+  id                  String          @id @default(cuid())
+  source              String          @unique
+  freshness           FreshnessStatus @default(UNKNOWN)
+  lastAttemptAt       DateTime?
+  lastSuccessAt       DateTime?
+  lastError           String?
+  consecutiveFailures Int             @default(0)
+  cursor              String?
+  updatedAt           DateTime        @updatedAt
+}
+
+model WebhookEndpoint {
+  id               String            @id @default(cuid())
+  organizationId   String
+  url              String
+  description      String?
+  secretCiphertext String
+  active           Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  deliveries       WebhookDelivery[]
+
+  @@index([organizationId, active])
+}
+
+model WebhookDelivery {
+  id               String                @id @default(cuid())
+  endpointId       String
+  signalId         String?
+  eventType        String
+  payload          Json
+  status           WebhookDeliveryStatus @default(PENDING)
+  attemptCount     Int                   @default(0)
+  maxAttempts      Int                   @default(6)
+  idempotencyKey   String                @unique
+  lastAttemptAt    DateTime?
+  nextAttemptAt    DateTime              @default(now())
+  responseStatus   Int?
+  lastError        String?
+  deliveredAt      DateTime?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  endpoint         WebhookEndpoint       @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  signal           RiskSignal?           @relation(fields: [signalId], references: [id], onDelete: SetNull)
+
+  @@index([status, nextAttemptAt])
+  @@index([endpointId, createdAt])
+}
+
+model PilotMetric {
+  id         String   @id @default(cuid())
+  pilotId    String
+  key        String
+  value      Float
+  unit       String
+  metadata   Json?
+  recordedAt DateTime @default(now())
+  pilot      Pilot    @relation(fields: [pilotId], references: [id], onDelete: Cascade)
+
+  @@index([pilotId, recordedAt])
+}
+
+model PilotReport {
+  id          String   @id @default(cuid())
+  pilotId     String
+  format      String
+  body        Json
+  html        String?
+  generatedAt DateTime @default(now())
+  pilot       Pilot    @relation(fields: [pilotId], references: [id], onDelete: Cascade)
+
+  @@index([pilotId, generatedAt])
+}
+
+model AuditLog {
+  id             String        @id @default(cuid())
+  organizationId String?
+  actorType      String
+  actorId        String?
+  action         String
+  resourceType   String
+  resourceId     String?
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+}
+
+model WorkerJob {
+  id             String          @id @default(cuid())
+  type           String
+  payload        Json
+  status         WorkerJobStatus @default(PENDING)
+  attempts       Int             @default(0)
+  maxAttempts    Int             @default(5)
+  runAfter       DateTime        @default(now())
+  lockedAt       DateTime?
+  lockedBy       String?
+  lastError      String?
+  idempotencyKey String          @unique
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([status, runAfter])
 }
