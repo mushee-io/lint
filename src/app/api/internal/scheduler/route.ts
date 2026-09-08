@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { runWorkerBatch } from "@/lib/jobs";
+import { recoverStalledJobs, runWorkerBatch } from "@/lib/jobs";
 import { getOpsStatus } from "@/lib/ops";
 import { authorizeSchedulerRequest } from "@/lib/scheduler-auth";
 
@@ -14,6 +14,7 @@ async function runSchedulerTick(request: Request) {
   try {
     const body = request.method === "POST" ? await request.json().catch(() => ({})) : {};
     const maxJobs = Math.min(Math.max(Number((body as { maxJobs?: number }).maxJobs) || 10, 1), 12);
+    const recovery = await recoverStalledJobs();
     const jobs = await runWorkerBatch(maxJobs);
     const [ops, markets, snapshots, provenance, guardEvaluations, signals, consensusSnapshots] = await Promise.all([
       getOpsStatus(),
@@ -34,6 +35,8 @@ async function runSchedulerTick(request: Request) {
       signals,
       consensusSnapshots,
       jobsRun: jobs.length,
+      recoveredStalledJobs: recovery.recovered,
+      deadLetteredStalledJobs: recovery.deadLettered,
       durationMs: finishedAt.getTime() - startedAt.getTime(),
     };
 
@@ -43,7 +46,7 @@ async function runSchedulerTick(request: Request) {
         actorId: auth.actor,
         action: "scheduler.tick",
         resourceType: "scheduler",
-        metadata: JSON.parse(JSON.stringify({ metrics, opsStatus: ops.status, sources: ops.sources })),
+        metadata: JSON.parse(JSON.stringify({ metrics, recovery, opsStatus: ops.status, sources: ops.sources })),
       },
     });
 
@@ -54,6 +57,7 @@ async function runSchedulerTick(request: Request) {
         startedAt: startedAt.toISOString(),
         finishedAt: finishedAt.toISOString(),
         metrics,
+        recovery,
         jobs,
         ops,
       },
