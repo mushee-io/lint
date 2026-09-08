@@ -4,6 +4,13 @@ on:
   schedule:
     - cron: "17 0 * * *"
   workflow_dispatch:
+  push:
+    branches: ["master"]
+    paths:
+      - ".github/workflows/validation-snapshot.yml"
+      - "src/app/api/internal/validation/**"
+      - "src/lib/validation.ts"
+      - "src/lib/scheduler-auth.ts"
 
 permissions:
   contents: read
@@ -25,10 +32,26 @@ jobs:
             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=market-lint-scheduler")
           OIDC_TOKEN=$(printf '%s' "$OIDC_RESPONSE" | jq -r '.value')
 
-          curl --fail --silent --show-error \
-            --header "Authorization: Bearer ${OIDC_TOKEN}" \
-            "${MARKET_LINT_BASE_URL}/api/internal/validation" \
-            --output validation.json
+          STATUS=000
+          for ATTEMPT in $(seq 1 10); do
+            STATUS=$(curl --silent --show-error \
+              --max-time 30 \
+              --output validation.json \
+              --write-out "%{http_code}" \
+              --header "Authorization: Bearer ${OIDC_TOKEN}" \
+              "${MARKET_LINT_BASE_URL}/api/internal/validation" || true)
+            if [ "$STATUS" = "200" ]; then
+              break
+            fi
+            echo "Validation endpoint returned HTTP ${STATUS}; retrying (${ATTEMPT}/10)..."
+            cat validation.json 2>/dev/null || true
+            sleep 15
+          done
+
+          if [ "$STATUS" != "200" ]; then
+            echo "Validation snapshot failed after retries"
+            exit 1
+          fi
 
           cat validation.json | jq .
           echo '### Market Lint 24-72h validation snapshot' >> "$GITHUB_STEP_SUMMARY"
