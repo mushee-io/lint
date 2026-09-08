@@ -12,6 +12,9 @@ export type JobType = (typeof JOB_TYPES)[number];
 export type JobHandler = (payload: Record<string, unknown>) => Promise<unknown>;
 export type JobHandlers = Partial<Record<JobType, JobHandler>>;
 
+const DEFAULT_INGEST_LIMIT = 10;
+const STALLED_JOB_MS = 5 * 60_000;
+
 export async function enqueueJob(type: JobType, payload: Record<string, unknown>, idempotencyKey: string, runAfter = new Date()) {
   return prisma.workerJob.upsert({
     where: { idempotencyKey },
@@ -20,11 +23,41 @@ export async function enqueueJob(type: JobType, payload: Record<string, unknown>
   });
 }
 
-export async function scheduleRecurringJobs(now = new Date()) {
+export async function recoverStalledJobs(now = new Date()) {
+  const cutoff = new Date(now.getTime() - STALLED_JOB_MS);
+  const stalled = await prisma.workerJob.findMany({
+    where: { status: "RUNNING", lockedAt: { lt: cutoff } },
+    select: { id: true, attempts: true, maxAttempts: true },
+  });
+
+  let recovered = 0;
+  let deadLettered = 0;
+  for (const job of stalled) {
+    const attempts = job.attempts + 1;
+    const dead = attempts >= job.maxAttempts;
+    await prisma.workerJob.update({
+      where: { id: job.id },
+      data: {
+        status: dead ? "DEAD_LETTER" : "RETRY",
+        attempts,
+        runAfter: dead ? now : new Date(now.getTime() + 5_000),
+        lockedAt: null,
+        lockedBy: null,
+        lastError: "Recovered after stale RUNNING lock",
+      },
+    });
+    if (dead) deadLettered += 1;
+    else recovered += 1;
+  }
+  return { checked: stalled.length, recovered, deadLettered };
+}
+
+export async function scheduleRecurringJobs(now = new Date(), ingestLimit = DEFAULT_INGEST_LIMIT) {
   const minute = Math.floor(now.getTime() / 60_000);
+  const safeLimit = Math.min(Math.max(Math.floor(ingestLimit), 1), 100);
   await Promise.all([
-    enqueueJob("INGEST_POLYMARKET", { limit: 50 }, `INGEST_POLYMARKET:${minute}`),
-    enqueueJob("INGEST_MANIFOLD", { limit: 50 }, `INGEST_MANIFOLD:${minute}`),
+    enqueueJob("INGEST_POLYMARKET", { limit: safeLimit }, `INGEST_POLYMARKET:${minute}`),
+    enqueueJob("INGEST_MANIFOLD", { limit: safeLimit }, `INGEST_MANIFOLD:${minute}`),
     enqueueJob("REFRESH_FRESHNESS", {}, `REFRESH_FRESHNESS:${minute}`),
     enqueueJob("EVALUATE_WATCHES", {}, `EVALUATE_WATCHES:${minute}`),
     enqueueJob("DELIVER_WEBHOOKS", {}, `DELIVER_WEBHOOKS:${minute}`),
@@ -51,8 +84,8 @@ async function runJob(job: { id: string; type: string; payload: unknown; attempt
   const override = handlers[type];
   if (override) return override(payload);
   switch (type) {
-    case "INGEST_POLYMARKET": return ingestPolymarket(typeof payload.limit === "number" ? payload.limit : 50);
-    case "INGEST_MANIFOLD": return ingestManifold(typeof payload.limit === "number" ? payload.limit : 50);
+    case "INGEST_POLYMARKET": return ingestPolymarket(typeof payload.limit === "number" ? payload.limit : DEFAULT_INGEST_LIMIT);
+    case "INGEST_MANIFOLD": return ingestManifold(typeof payload.limit === "number" ? payload.limit : DEFAULT_INGEST_LIMIT);
     case "REFRESH_FRESHNESS": return refreshFreshness();
     case "EVALUATE_WATCHES": return refreshWatches();
     case "REFRESH_CONSENSUS": return refreshConsensus();
@@ -80,7 +113,8 @@ export async function runNextJob(workerId = `${os.hostname()}:${process.pid}`, h
   }
 }
 
-export async function runWorkerBatch(maxJobs = 20, handlers: JobHandlers = {}, workerId = `${os.hostname()}:${process.pid}`) {
+export async function runWorkerBatch(maxJobs = 10, handlers: JobHandlers = {}, workerId = `${os.hostname()}:${process.pid}`) {
+  const recovery = await recoverStalledJobs();
   await scheduleRecurringJobs();
   const results = [];
   for (let index = 0; index < maxJobs; index += 1) {
@@ -88,5 +122,5 @@ export async function runWorkerBatch(maxJobs = 20, handlers: JobHandlers = {}, w
     if (!result) break;
     results.push(result);
   }
-  return results;
+  return Object.assign(results, { recovery });
 }
