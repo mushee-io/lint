@@ -7,10 +7,31 @@ services:
       POSTGRES_PASSWORD: marketlint
     ports: ["5432:5432"]
     volumes: ["postgres_data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marketlint -d marketlint"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
   app:
     build: .
     environment:
       DATABASE_URL: postgresql://marketlint:marketlint@db:5432/marketlint
+      WEBHOOK_ENCRYPTION_KEY: development-only-change-me
+      WORKER_SECRET: development-worker-secret
+      BOOTSTRAP_SECRET: development-bootstrap-secret
     ports: ["3000:3000"]
-    depends_on: [db]
-volumes: { postgres_data: {} }
+    depends_on:
+      db:
+        condition: service_healthy
+  worker:
+    build: .
+    command: ["npm", "run", "worker"]
+    environment:
+      DATABASE_URL: postgresql://marketlint:marketlint@db:5432/marketlint
+      WEBHOOK_ENCRYPTION_KEY: development-only-change-me
+      WORKER_SECRET: development-worker-secret
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  postgres_data: {}

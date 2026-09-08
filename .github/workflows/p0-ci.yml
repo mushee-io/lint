@@ -1,0 +1,62 @@
+name: P0 CI
+
+on:
+  push:
+    branches: ["build/p0-database-ready"]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: marketlint
+          POSTGRES_USER: marketlint
+          POSTGRES_PASSWORD: marketlint
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U marketlint -d marketlint"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://marketlint:marketlint@localhost:5432/marketlint
+      WEBHOOK_ENCRYPTION_KEY: ci-webhook-encryption-key
+      WORKER_SECRET: ci-worker-secret
+      BOOTSTRAP_SECRET: ci-bootstrap-secret
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies and refresh lockfile
+        run: npm install
+      - name: Prisma generate
+        run: npx prisma generate
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+      - name: Migration status
+        run: npx prisma migrate status
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests
+        run: npm test
+      - name: Live Polymarket persistence smoke
+        run: npx tsx scripts/live-polymarket-smoke.ts
+      - name: Production build
+        env:
+          NODE_ENV: production
+        run: npm run build
+      - name: Upload refreshed lockfile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-lock
+          path: package-lock.json
