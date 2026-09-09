@@ -55,6 +55,8 @@ jobs:
         run: npx tsx scripts/market-intelligence-smoke.ts
       - name: Watch v2 surveillance and incident smoke
         run: npx tsx scripts/watch-v2-smoke.ts
+      - name: Universal event graph smoke
+        run: npx tsx scripts/event-graph-smoke.ts
       - name: Production dependency audit
         run: npm run security:audit
       - name: Live Polymarket persistence smoke
