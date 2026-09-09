@@ -61,6 +61,8 @@ jobs:
         run: npx tsx scripts/consensus-v3-smoke.ts
       - name: Enterprise production controls smoke
         run: npx tsx scripts/enterprise-smoke.ts
+      - name: Partner pilot integration smoke
+        run: npx tsx scripts/partner-pilot-smoke.ts
       - name: Production dependency audit
         run: npm run security:audit
       - name: Live Polymarket persistence smoke
