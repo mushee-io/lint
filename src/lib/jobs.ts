@@ -1,14 +1,14 @@
 import os from "node:os";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
-import { ingestManifold, ingestPolymarket } from "@/lib/ingestion";
+import { ingestKalshi, ingestManifold, ingestPolymarket } from "@/lib/ingestion";
 import { refreshFreshness } from "@/lib/freshness";
 import { refreshGraphConsensus } from "@/lib/consensus-engine";
 import { refreshWatchEngine } from "@/lib/watch-engine";
 import { deliverPendingWebhooks } from "@/lib/webhooks";
 
 const json = (value: unknown) => value as Prisma.InputJsonValue;
-export const JOB_TYPES = ["INGEST_POLYMARKET", "INGEST_MANIFOLD", "REFRESH_FRESHNESS", "EVALUATE_WATCHES", "REFRESH_CONSENSUS", "DELIVER_WEBHOOKS"] as const;
+export const JOB_TYPES = ["INGEST_POLYMARKET", "INGEST_MANIFOLD", "INGEST_KALSHI", "REFRESH_FRESHNESS", "EVALUATE_WATCHES", "REFRESH_CONSENSUS", "DELIVER_WEBHOOKS"] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 export type JobHandler = (payload: Record<string, unknown>) => Promise<unknown>;
 export type JobHandlers = Partial<Record<JobType, JobHandler>>;
@@ -30,25 +30,13 @@ export async function recoverStalledJobs(now = new Date()) {
     where: { status: "RUNNING", lockedAt: { lt: cutoff } },
     select: { id: true, attempts: true, maxAttempts: true },
   });
-
   let recovered = 0;
   let deadLettered = 0;
   for (const job of stalled) {
     const attempts = job.attempts + 1;
     const dead = attempts >= job.maxAttempts;
-    await prisma.workerJob.update({
-      where: { id: job.id },
-      data: {
-        status: dead ? "DEAD_LETTER" : "RETRY",
-        attempts,
-        runAfter: dead ? now : new Date(now.getTime() + 5_000),
-        lockedAt: null,
-        lockedBy: null,
-        lastError: "Recovered after stale RUNNING lock",
-      },
-    });
-    if (dead) deadLettered += 1;
-    else recovered += 1;
+    await prisma.workerJob.update({ where: { id: job.id }, data: { status: dead ? "DEAD_LETTER" : "RETRY", attempts, runAfter: dead ? now : new Date(now.getTime() + 5_000), lockedAt: null, lockedBy: null, lastError: "Recovered after stale RUNNING lock" } });
+    if (dead) deadLettered += 1; else recovered += 1;
   }
   return { checked: stalled.length, recovered, deadLettered };
 }
@@ -59,6 +47,7 @@ export async function scheduleRecurringJobs(now = new Date(), ingestLimit = DEFA
   await Promise.all([
     enqueueJob("INGEST_POLYMARKET", { limit: safeLimit }, `INGEST_POLYMARKET:${minute}`),
     enqueueJob("INGEST_MANIFOLD", { limit: safeLimit }, `INGEST_MANIFOLD:${minute}`),
+    enqueueJob("INGEST_KALSHI", { limit: safeLimit }, `INGEST_KALSHI:${minute}`),
     enqueueJob("REFRESH_FRESHNESS", {}, `REFRESH_FRESHNESS:${minute}`),
     enqueueJob("EVALUATE_WATCHES", {}, `EVALUATE_WATCHES:${minute}`),
     enqueueJob("DELIVER_WEBHOOKS", {}, `DELIVER_WEBHOOKS:${minute}`),
@@ -67,15 +56,9 @@ export async function scheduleRecurringJobs(now = new Date(), ingestLimit = DEFA
 }
 
 async function claimJob(workerId: string, jobId?: string) {
-  const candidate = await prisma.workerJob.findFirst({
-    where: { ...(jobId ? { id: jobId } : {}), status: { in: ["PENDING", "RETRY"] }, runAfter: { lte: new Date() } },
-    orderBy: [{ runAfter: "asc" }, { createdAt: "asc" }],
-  });
+  const candidate = await prisma.workerJob.findFirst({ where: { ...(jobId ? { id: jobId } : {}), status: { in: ["PENDING", "RETRY"] }, runAfter: { lte: new Date() } }, orderBy: [{ runAfter: "asc" }, { createdAt: "asc" }] });
   if (!candidate) return null;
-  const claimed = await prisma.workerJob.updateMany({
-    where: { id: candidate.id, status: { in: ["PENDING", "RETRY"] } },
-    data: { status: "RUNNING", lockedAt: new Date(), lockedBy: workerId },
-  });
+  const claimed = await prisma.workerJob.updateMany({ where: { id: candidate.id, status: { in: ["PENDING", "RETRY"] } }, data: { status: "RUNNING", lockedAt: new Date(), lockedBy: workerId } });
   return claimed.count === 1 ? { ...candidate, status: "RUNNING" as const } : null;
 }
 
@@ -87,6 +70,7 @@ async function runJob(job: { id: string; type: string; payload: unknown; attempt
   switch (type) {
     case "INGEST_POLYMARKET": return ingestPolymarket(typeof payload.limit === "number" ? payload.limit : DEFAULT_INGEST_LIMIT);
     case "INGEST_MANIFOLD": return ingestManifold(typeof payload.limit === "number" ? payload.limit : DEFAULT_INGEST_LIMIT);
+    case "INGEST_KALSHI": return ingestKalshi(typeof payload.limit === "number" ? payload.limit : DEFAULT_INGEST_LIMIT);
     case "REFRESH_FRESHNESS": return refreshFreshness();
     case "EVALUATE_WATCHES": return refreshWatchEngine();
     case "REFRESH_CONSENSUS": return refreshGraphConsensus();
@@ -106,10 +90,7 @@ export async function runNextJob(workerId = `${os.hostname()}:${process.pid}`, h
     const attempts = job.attempts + 1;
     const dead = attempts >= job.maxAttempts;
     const backoffMs = Math.min(60 * 60_000, 2 ** Math.min(attempts, 10) * 5_000);
-    await prisma.workerJob.update({
-      where: { id: job.id },
-      data: { status: dead ? "DEAD_LETTER" : "RETRY", attempts, runAfter: new Date(Date.now() + backoffMs), lockedAt: null, lockedBy: null, lastError: (error instanceof Error ? error.message : "Unknown worker error").slice(0, 1000) },
-    });
+    await prisma.workerJob.update({ where: { id: job.id }, data: { status: dead ? "DEAD_LETTER" : "RETRY", attempts, runAfter: new Date(Date.now() + backoffMs), lockedAt: null, lockedBy: null, lastError: (error instanceof Error ? error.message : "Unknown worker error").slice(0, 1000) } });
     return { id: job.id, type: job.type, status: dead ? "DEAD_LETTER" : "RETRY", error: error instanceof Error ? error.message : "Unknown worker error" };
   }
 }
