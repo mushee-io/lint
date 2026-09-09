@@ -23,6 +23,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const signal = await prisma.riskSignal.findFirst({ where: { id, organizationId: context.organizationId } });
     if (!signal) return Response.json({ error: { message: "Incident not found" } }, { status: 404 });
+    const responseTimeMs = Math.max(0, Date.now() - signal.detectedAt.getTime());
 
     const audit = await prisma.auditLog.create({
       data: {
@@ -38,11 +39,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           severity: signal.severity,
           marketId: signal.marketId,
           algorithmVersion: signal.algorithmVersion,
+          responseTimeMs,
         } as Prisma.InputJsonValue,
       },
     });
 
-    return Response.json({ data: { id: signal.id, action, note, recordedAt: audit.createdAt.toISOString() } });
+    return Response.json({ data: { id: signal.id, action, note, responseTimeMs, recordedAt: audit.createdAt.toISOString() } });
   } catch (error) {
     if (error instanceof AccessError) return Response.json({ error: { message: error.message } }, { status: error.status });
     return Response.json({ error: { message: "Incident action unavailable", detail: error instanceof Error ? error.message : "Unknown error" } }, { status: 503 });
