@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { createApiKey } from "../src/lib/auth";
-import { refreshGraphConsensus } from "../src/lib/consensus-engine";
+import { CONSENSUS_ALGORITHM_VERSION, refreshGraphConsensus } from "../src/lib/consensus-engine";
 import { prisma } from "../src/lib/db";
 import { getConfirmedEventClusterIds, getPersistentEventGraph } from "../src/lib/event-graph";
 import { GET as listRelationships } from "../src/app/api/v1/event-relationships/route";
@@ -87,7 +87,7 @@ async function main() {
     assert(cluster.includes(eventB.id));
 
     const consensusRun = await refreshGraphConsensus();
-    assert.equal(consensusRun.algorithmVersion, "consensus-v2-graph");
+    assert.equal(consensusRun.algorithmVersion, CONSENSUS_ALGORITHM_VERSION);
     const [consensusA, consensusB] = await Promise.all([
       prisma.consensusSnapshot.findFirst({ where: { canonicalEventId: eventA.id }, orderBy: { createdAt: "desc" } }),
       prisma.consensusSnapshot.findFirst({ where: { canonicalEventId: eventB.id }, orderBy: { createdAt: "desc" } }),
@@ -97,6 +97,7 @@ async function main() {
     assert.equal(consensusB.status, "READY");
     assert.equal(consensusA.protocolCount, 2);
     assert.equal(consensusA.marketCount, 2);
+    assert.equal(consensusA.algorithmVersion, CONSENSUS_ALGORITHM_VERSION);
     assert(consensusA.probability != null && consensusA.probability > 0.58 && consensusA.probability < 0.62);
 
     const after = await getPersistentEventGraph(eventA.id);
