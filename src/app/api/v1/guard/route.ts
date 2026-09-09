@@ -3,6 +3,7 @@ import { AccessError, requireAccess } from "@/lib/auth";
 import { canonicalTitleSimilarity } from "@/lib/canonical";
 import { prisma } from "@/lib/db";
 import { evaluateGuard, type GuardDuplicateCandidate } from "@/lib/guard-engine";
+import { recordPilotMetricForOrganization } from "@/lib/partner-pilot";
 
 const json = (value: unknown) => value as Prisma.InputJsonValue;
 
@@ -28,6 +29,7 @@ function validateBody(body: unknown) {
 }
 
 export async function POST(request: Request) {
+  const startedAt = Date.now();
   try {
     const body = await request.json().catch(() => null);
     const validationError = validateBody(body);
@@ -85,10 +87,22 @@ export async function POST(request: Request) {
       },
     });
 
+    const responseTimeMs = Date.now() - startedAt;
+    if (context) {
+      await recordPilotMetricForOrganization({
+        organizationId: context.organizationId,
+        key: "guard.response_ms",
+        value: responseTimeMs,
+        unit: "ms",
+        metadata: { decision: evaluation.decision, score: evaluation.marketLintScore, evaluationId: persisted.id },
+      });
+    }
+
     return Response.json({
       data: {
         id: persisted.id,
         ...evaluation,
+        responseTimeMs,
         createdAt: persisted.createdAt.toISOString(),
       },
     });
