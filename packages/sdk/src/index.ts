@@ -6,7 +6,7 @@ export class MarketLint {
       method: body ? "POST" : "GET",
       headers: {
         "Content-Type": "application/json",
-        ...(this.options.apiKey ? { Authorization: `Bearer ${this.options.apiKey}` } : {}),
+        ...(this.options.apiKey ? { Authorization: `Bearer ${this.options.apiKey}`} : {}),
       },
       body: body ? JSON.stringify(body) : undefined,
     });
@@ -40,8 +40,10 @@ export class MarketLint {
   getResolutionReadiness(marketId: string) { return this.call(`/api/v1/markets/${marketId}/resolution-readiness`); }
   getEventDivergence(eventId: string) { return this.call(`/api/v1/events/${encodeURIComponent(eventId)}/divergence`); }
   getConsensus(eventId: string) { return this.call(`/api/v1/events/${encodeURIComponent(eventId)}/consensus`); }
+  getConsensusHistory(eventId: string) { return this.getConsensus(eventId); }
   getEventConfidence(eventId: string) { return this.getConsensus(eventId); }
-  getProtocolReputation(id: string) { return this.call(`/api/v1/protocols/${id}/reputation`); }
+  getProtocolReliability(protocol: string) { return this.call(`/api/v1/protocols/${encodeURIComponent(protocol)}/reputation`); }
+  getProtocolReputation(id: string) { return this.getProtocolReliability(id); }
   getEventGraph(id: string) { return this.call(`/api/v1/events/${encodeURIComponent(id)}/graph`); }
   getEventRelationshipReviewQueue(limit = 100) { return this.call(`/api/v1/event-relationships?limit=${encodeURIComponent(String(limit))}`); }
   decideEventRelationship(relationshipId: string, decision: "CONFIRM_SAME_EVENT" | "MARK_RELATED" | "REJECT", note?: string) { return this.call(`/api/v1/event-relationships/${encodeURIComponent(relationshipId)}`, { decision, note }); }
