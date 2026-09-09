@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { Prisma } from "@/generated/prisma/client";
 import { createApiKey } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { setTenantPolicy } from "@/lib/enterprise";
@@ -108,7 +109,7 @@ export async function recordPilotMetricForOrganization(input: {
     });
     if (!pilot) return null;
     return await prisma.pilotMetric.create({
-      data: { pilotId: pilot.id, key: input.key, value: input.value, unit: input.unit, metadata: input.metadata },
+      data: { pilotId: pilot.id, key: input.key, value: input.value, unit: input.unit, metadata: input.metadata ? input.metadata as Prisma.InputJsonValue : undefined },
     });
   } catch {
     return null;
