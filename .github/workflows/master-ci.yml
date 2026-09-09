@@ -57,6 +57,8 @@ jobs:
         run: npx tsx scripts/watch-v2-smoke.ts
       - name: Universal event graph smoke
         run: npx tsx scripts/event-graph-smoke.ts
+      - name: Consensus v3 confidence smoke
+        run: npx tsx scripts/consensus-v3-smoke.ts
       - name: Production dependency audit
         run: npm run security:audit
       - name: Live Polymarket persistence smoke
