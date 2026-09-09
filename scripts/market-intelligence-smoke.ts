@@ -5,6 +5,17 @@ import { createApiKey } from "../src/lib/auth";
 import { ingestPolymarket } from "../src/lib/ingestion";
 import { GET as getIntelligence } from "../src/app/api/v1/markets/[id]/intelligence/route";
 import { POST as reviewMarket } from "../src/app/api/v1/markets/[id]/review/route";
+import { POST as decideMarket } from "../src/app/api/v1/markets/[id]/decision/route";
+
+function decisionRequest(marketId: string, secret: string | null, body: unknown) {
+  const headers = new Headers({ "content-type": "application/json" });
+  if (secret) headers.set("authorization", `Bearer ${secret}`);
+  return new Request(`http://localhost/api/v1/markets/${marketId}/decision`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+}
 
 async function main() {
   const ingestion = await ingestPolymarket(5);
@@ -62,11 +73,13 @@ async function main() {
   const suffix = `${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
   const organization = await prisma.organization.create({ data: { name: `Intelligence Smoke ${suffix}`, slug: `intelligence-smoke-${suffix}` } });
   try {
-    const apiKey = await createApiKey({ organizationId: organization.id, permissions: ["intelligence:review"], label: "milestone-3-smoke" });
+    const reviewKey = await createApiKey({ organizationId: organization.id, permissions: ["intelligence:review"], label: "milestone-3-smoke" });
+    const decisionKey = await createApiKey({ organizationId: organization.id, permissions: ["operator:decision"], label: "milestone-4-smoke" });
+
     const reviewResponse = await reviewMarket(
       new Request(`http://localhost/api/v1/markets/${market.id}/review`, {
         method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${apiKey.secret}` },
+        headers: { "content-type": "application/json", authorization: `Bearer ${reviewKey.secret}` },
         body: JSON.stringify({ mode: "deterministic" }),
       }),
       { params: Promise.resolve({ id: market.id }) },
@@ -88,8 +101,38 @@ async function main() {
     assert.equal(reviewPayload.data.grounding.generatedFrom, "PERSISTED_MARKET_INTELLIGENCE");
     assert.equal(reviewPayload.data.grounding.dimensionCodes.length, 7);
     assert(reviewPayload.data.reviewId, "Authenticated review was not persisted");
-    const audit = await prisma.auditLog.findUnique({ where: { id: reviewPayload.data.reviewId! } });
-    assert.equal(audit?.action, "MARKET_AI_REVIEW");
+    const reviewAudit = await prisma.auditLog.findUnique({ where: { id: reviewPayload.data.reviewId! } });
+    assert.equal(reviewAudit?.action, "MARKET_AI_REVIEW");
+
+    const unauthenticatedDecision = await decideMarket(
+      decisionRequest(market.id, null, { decision: "APPROVE" }),
+      { params: Promise.resolve({ id: market.id }) },
+    );
+    assert.equal(unauthenticatedDecision.status, 401, "Unauthenticated operator decision was accepted");
+
+    const wrongPermissionDecision = await decideMarket(
+      decisionRequest(market.id, reviewKey.secret, { decision: "APPROVE" }),
+      { params: Promise.resolve({ id: market.id }) },
+    );
+    assert.equal(wrongPermissionDecision.status, 403, "Review-only key could submit an operator decision");
+
+    const invalidDecision = await decideMarket(
+      decisionRequest(market.id, decisionKey.secret, { decision: "SHIP" }),
+      { params: Promise.resolve({ id: market.id }) },
+    );
+    assert.equal(invalidDecision.status, 400, "Invalid operator decision was accepted");
+
+    const approved = await decideMarket(
+      decisionRequest(market.id, decisionKey.secret, { decision: "APPROVE", note: "Operator smoke approval" }),
+      { params: Promise.resolve({ id: market.id }) },
+    );
+    assert.equal(approved.status, 200);
+    const approvedPayload = await approved.json() as { data: { id: string; decision: string; marketId: string } };
+    assert.equal(approvedPayload.data.marketId, market.id);
+    assert.equal(approvedPayload.data.decision, "APPROVE");
+    const decisionAudit = await prisma.auditLog.findUnique({ where: { id: approvedPayload.data.id } });
+    assert.equal(decisionAudit?.organizationId, organization.id);
+    assert.equal(decisionAudit?.action, "MARKET_APPROVE");
   } finally {
     await prisma.organization.delete({ where: { id: organization.id } });
   }
@@ -105,6 +148,10 @@ async function main() {
     paidAiProtection: "PASS",
     groundedReviewerFallback: "PASS",
     durableReviewerAudit: "PASS",
+    operatorUnauthenticatedBoundary: "PASS",
+    operatorPermissionBoundary: "PASS",
+    operatorValidationBoundary: "PASS",
+    operatorDecisionPersistence: "PASS",
   }, null, 2));
 }
 
