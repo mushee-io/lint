@@ -24,6 +24,7 @@ export default async function Protocol() {
   const links = [
     ["Operator dashboard", "/protocol/operator", true],
     ["Incident queue", "/protocol/incidents", true],
+    ["Universal event graph", "/protocol/graph", true],
     ["Monitored markets", "/protocol/markets", false],
     ["Production validation", "/protocol/validation", false],
     ["Guard history", "/protocol/guard", false],
