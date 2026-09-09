@@ -53,6 +53,24 @@ POST /api/v1/incidents/:id
 
 Incident reads require `incidents:read`; actions require `incidents:write` and Analyst role or higher. See `docs/watch-v2.md`.
 
+## Universal Event Graph
+
+Milestone 6 turns canonical-event matching into a durable cross-protocol graph. Market Lint normalizes common market aliases and numeric magnitudes, checks time/threshold compatibility, negation, and directional conditions, and then separates matches into `SAME_EVENT`, `POSSIBLE_SAME_EVENT`, `RELATED_EVENT`, or `UNRELATED`.
+
+Only sufficiently high-confidence equivalents are auto-grouped. Uncertain candidates enter `/protocol/graph`, where an authenticated operator can `CONFIRM_SAME_EVENT`, `MARK_RELATED`, or `REJECT`. Confirmed same-event edges join a graph-aware consensus cluster; possible, related, and rejected edges never count toward consensus just to manufacture agreement.
+
+Persistent graph APIs:
+
+```text
+GET  /api/v1/events
+GET  /api/v1/events/:id
+GET  /api/v1/events/:id/graph
+GET  /api/v1/event-relationships
+POST /api/v1/event-relationships/:id
+```
+
+Relationship queue reads require `graph:read`; graph decisions require `graph:write` and Analyst role or higher. Consensus refreshes now use `consensus-v2-graph`. See `docs/event-graph.md`.
+
 ## Run locally
 
 ```bash
@@ -72,7 +90,7 @@ The frontend still includes clearly labeled deterministic demo surfaces. Persist
 
 ## Database and durability
 
-PostgreSQL and Prisma persist organizations, roles, API keys, protocols, normalized markets, snapshots, provenance, canonical events, Watch registrations, Guard evaluations, risk signals, consensus snapshots, source freshness, worker jobs, webhook deliveries, pilots, metrics, feedback, reports, audit logs, authenticated reviewer audit records, operator decisions, Watch baselines, and incident lifecycle actions.
+PostgreSQL and Prisma persist organizations, roles, API keys, protocols, normalized markets, snapshots, provenance, canonical events, event relationships, Watch registrations, Guard evaluations, risk signals, consensus snapshots, source freshness, worker jobs, webhook deliveries, pilots, metrics, feedback, reports, audit logs, authenticated reviewer audit records, operator decisions, Watch baselines, incident lifecycle actions, and event-relationship review decisions.
 
 ```bash
 npm run db:generate
@@ -87,11 +105,11 @@ npm run smoke:polymarket
 npm run smoke:manifold
 ```
 
-The worker continuously schedules both public sources, freshness evaluation, Watch v2 surveillance, consensus refreshes, and webhook delivery. Every persisted live market carries source/provenance metadata; source failures remain visible in `DataSourceState`.
+The worker continuously schedules both public sources, freshness evaluation, Watch v2 surveillance, graph-aware consensus refreshes, and webhook delivery. Every persisted live market carries source/provenance metadata; source failures remain visible in `DataSourceState`.
 
 ## Protocol intelligence
 
-Core persistent endpoints include Guard, Market Intelligence, the grounded AI Reviewer, operator decisions, Watch, incidents, Signals, Consensus, webhooks, pilot metrics/reports, protocol workspaces, health, and readiness.
+Core persistent endpoints include Guard, Market Intelligence, the grounded AI Reviewer, operator decisions, Watch, incidents, Signals, the Universal Event Graph, Consensus, webhooks, pilot metrics/reports, protocol workspaces, health, and readiness.
 
 ```text
 POST /api/v1/guard
@@ -102,10 +120,14 @@ POST /api/v1/watch
 GET  /api/v1/signals
 GET  /api/v1/incidents
 POST /api/v1/incidents/:id
+GET  /api/v1/events
+GET  /api/v1/events/:id/graph
+GET  /api/v1/event-relationships
+POST /api/v1/event-relationships/:id
 GET  /api/v1/events/:id/consensus
 ```
 
-`/protocol` shows durable operational values. `/protocol/operator` is the risk-ranked operator queue. `/protocol/incidents` is the Watch incident queue. `/protocol/pilot` is tenant-scoped by `MARKET_LINT_PILOT_ORG_ID` in the pilot deployment.
+`/protocol` shows durable operational values. `/protocol/operator` is the risk-ranked operator queue. `/protocol/incidents` is the Watch incident queue. `/protocol/graph` is the canonical-event review workspace. `/protocol/pilot` is tenant-scoped by `MARKET_LINT_PILOT_ORG_ID` in the pilot deployment.
 
 For integration steps, see `docs/integration-quickstart.md`. Rain remains explicitly blocked until official feed/API details are supplied; see `docs/pilots/rain.md`.
 
@@ -120,7 +142,7 @@ npm run smoke:resilience
 npm run build
 ```
 
-CI also runs deterministic Guard, Market Intelligence/Reviewer, Watch v2/incident, live ingestion, resilience, worker-soak, and pilot-preflight gates.
+CI also runs deterministic Guard, Market Intelligence/Reviewer, Watch v2/incident, Universal Event Graph, live ingestion, resilience, worker-soak, and pilot-preflight gates.
 
 For a longer worker validation run:
 
