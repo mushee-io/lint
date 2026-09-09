@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { prisma } from "@/lib/db";
+import { consumeApiUsage, EnterpriseAccessError } from "@/lib/enterprise";
 
 export type OrganizationRole = "OWNER" | "ADMIN" | "DEVELOPER" | "ANALYST" | "VIEWER";
 export type AccessContext = {
@@ -46,6 +47,12 @@ export async function requireAccess(request: Request, options: { permission?: st
     const key = await prisma.apiKey.findUnique({ where: { hash: hashSecret(token) } });
     if (!key || key.revokedAt) throw new AccessError("Invalid or revoked API key", 401);
     if (!permissionAllowed(key.permissions, options.permission)) throw new AccessError("API key lacks required permission", 403);
+    try {
+      await consumeApiUsage({ organizationId: key.organizationId, apiKeyId: key.id, request });
+    } catch (error) {
+      if (error instanceof EnterpriseAccessError) throw new AccessError(error.message, error.status);
+      throw error;
+    }
     await prisma.apiKey.update({ where: { id: key.id }, data: { lastUsedAt: new Date() } });
     return {
       organizationId: key.organizationId,
