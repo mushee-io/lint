@@ -71,6 +71,8 @@ jobs:
         run: npm run smoke:manifold
       - name: Live Kalshi persistence smoke
         run: npx tsx scripts/live-kalshi-smoke.ts
+      - name: Live Rain partner sandbox smoke
+        run: npx tsx scripts/live-rain-partner-smoke.ts
       - name: Durable P0 integration smoke
         run: npx tsx scripts/p0-integration-smoke.ts
       - name: Failure and recovery smoke
