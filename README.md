@@ -69,7 +69,23 @@ GET  /api/v1/event-relationships
 POST /api/v1/event-relationships/:id
 ```
 
-Relationship queue reads require `graph:read`; graph decisions require `graph:write` and Analyst role or higher. Consensus refreshes now use `consensus-v2-graph`. See `docs/event-graph.md`.
+Relationship queue reads require `graph:read`; graph decisions require `graph:write` and Analyst role or higher. See `docs/event-graph.md`.
+
+## Cross-Protocol Consensus v3
+
+Milestone 7 turns graph-aware consensus into an operator-grade confidence engine. `consensus-v3-confidence` first aggregates markets within each protocol, then combines protocol-level probabilities using operational source reliability and deliberately capped liquidity influence. One venue therefore cannot become "truth" just because it has more duplicate markets or far more liquidity.
+
+Consensus is `READY` only with at least two distinct protocols carrying fresh/aging usable probability data. When multiple venues exist but fewer than two are currently usable it returns `STALE`; with fewer than two independent venues it returns `INSUFFICIENT_DATA`.
+
+Every ready result includes a 0–100 confidence decomposition across agreement, protocol diversity, source reliability, freshness, liquidity support, and persisted history depth. Pairwise venue disagreement is classified from `NONE` through `CRITICAL`; high/critical escalation on watched events creates durable `CONSENSUS_DIVERGENCE` signals and signed-webhook delivery.
+
+```text
+GET /api/v1/events/:id/consensus
+GET /api/v1/events/:id/divergence
+GET /api/v1/protocols/:protocol/reputation
+```
+
+`/protocol/consensus` is the cross-protocol control center with event confidence, dispersion, divergence alerts, history-backed status, and observed protocol reliability. See `docs/consensus-v3.md`.
 
 ## Run locally
 
@@ -90,7 +106,7 @@ The frontend still includes clearly labeled deterministic demo surfaces. Persist
 
 ## Database and durability
 
-PostgreSQL and Prisma persist organizations, roles, API keys, protocols, normalized markets, snapshots, provenance, canonical events, event relationships, Watch registrations, Guard evaluations, risk signals, consensus snapshots, source freshness, worker jobs, webhook deliveries, pilots, metrics, feedback, reports, audit logs, authenticated reviewer audit records, operator decisions, Watch baselines, incident lifecycle actions, and event-relationship review decisions.
+PostgreSQL and Prisma persist organizations, roles, API keys, protocols, normalized markets, snapshots, provenance, canonical events, event relationships, Watch registrations, Guard evaluations, risk signals, consensus snapshots, source freshness, worker jobs, webhook deliveries, pilots, metrics, feedback, reports, audit logs, authenticated reviewer audit records, operator decisions, Watch baselines, incident lifecycle actions, event-relationship review decisions, consensus history, confidence evidence, and cross-protocol divergence alerts.
 
 ```bash
 npm run db:generate
@@ -105,11 +121,11 @@ npm run smoke:polymarket
 npm run smoke:manifold
 ```
 
-The worker continuously schedules both public sources, freshness evaluation, Watch v2 surveillance, graph-aware consensus refreshes, and webhook delivery. Every persisted live market carries source/provenance metadata; source failures remain visible in `DataSourceState`.
+The worker continuously schedules both public sources, freshness evaluation, Watch v2 surveillance, confidence-aware graph consensus refreshes, and webhook delivery. Every persisted live market carries source/provenance metadata; source failures remain visible in `DataSourceState`.
 
 ## Protocol intelligence
 
-Core persistent endpoints include Guard, Market Intelligence, the grounded AI Reviewer, operator decisions, Watch, incidents, Signals, the Universal Event Graph, Consensus, webhooks, pilot metrics/reports, protocol workspaces, health, and readiness.
+Core persistent endpoints include Guard, Market Intelligence, the grounded AI Reviewer, operator decisions, Watch, incidents, Signals, the Universal Event Graph, Consensus v3, divergence intelligence, observed protocol reliability, webhooks, pilot metrics/reports, protocol workspaces, health, and readiness.
 
 ```text
 POST /api/v1/guard
@@ -125,9 +141,11 @@ GET  /api/v1/events/:id/graph
 GET  /api/v1/event-relationships
 POST /api/v1/event-relationships/:id
 GET  /api/v1/events/:id/consensus
+GET  /api/v1/events/:id/divergence
+GET  /api/v1/protocols/:protocol/reputation
 ```
 
-`/protocol` shows durable operational values. `/protocol/operator` is the risk-ranked operator queue. `/protocol/incidents` is the Watch incident queue. `/protocol/graph` is the canonical-event review workspace. `/protocol/pilot` is tenant-scoped by `MARKET_LINT_PILOT_ORG_ID` in the pilot deployment.
+`/protocol` shows durable operational values. `/protocol/operator` is the risk-ranked operator queue. `/protocol/incidents` is the Watch incident queue. `/protocol/graph` is the canonical-event review workspace. `/protocol/consensus` is the consensus and confidence control center. `/protocol/pilot` is tenant-scoped by `MARKET_LINT_PILOT_ORG_ID` in the pilot deployment.
 
 For integration steps, see `docs/integration-quickstart.md`. Rain remains explicitly blocked until official feed/API details are supplied; see `docs/pilots/rain.md`.
 
@@ -142,7 +160,7 @@ npm run smoke:resilience
 npm run build
 ```
 
-CI also runs deterministic Guard, Market Intelligence/Reviewer, Watch v2/incident, Universal Event Graph, live ingestion, resilience, worker-soak, and pilot-preflight gates.
+CI also runs deterministic Guard, Market Intelligence/Reviewer, Watch v2/incident, Universal Event Graph, Consensus v3 confidence/divergence, live ingestion, resilience, worker-soak, and pilot-preflight gates.
 
 For a longer worker validation run:
 
