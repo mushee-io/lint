@@ -52,6 +52,11 @@ function marketStatus(value?: string): Market["status"] {
   return "OPEN";
 }
 
+function kalshiUrl(raw: RawKalshiMarket) {
+  const lookup = raw.event_ticker || raw.ticker;
+  return `https://kalshi.com/search?q=${encodeURIComponent(lookup)}`;
+}
+
 export function normalizeKalshi(raw: RawKalshiMarket): Market {
   const yesProbability = probability(raw);
   const description = [raw.subtitle, raw.rules_primary, raw.rules_secondary].filter(Boolean).join("\n\n");
@@ -70,7 +75,7 @@ export function normalizeKalshi(raw: RawKalshiMarket): Market {
     resolutionTime: raw.settlement_ts || raw.expiration_time || raw.close_time || "",
     resolutionSource: raw.rules_primary ? "Kalshi market rules" : "UNAVAILABLE",
     status: marketStatus(raw.status),
-    marketUrl: `https://kalshi.com/markets/${encodeURIComponent(raw.ticker)}`,
+    marketUrl: kalshiUrl(raw),
     creator: "Kalshi",
     liquidity: finite(raw.liquidity_dollars),
     volume: finite(raw.volume_fp),
