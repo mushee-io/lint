@@ -17,7 +17,8 @@ export class MarketLint {
   analyze(input: unknown) { return this.call("/api/v1/analyze", input); }
   search(query: string) { return this.call("/api/v1/search", { query }); }
   findDuplicates(input: unknown) { return this.call("/api/v1/duplicates", input); }
-  getEvent(id: string) { return this.call(`/api/v1/events/${id}`); }
+  listEvents(limit = 50) { return this.call(`/api/v1/events?limit=${encodeURIComponent(String(limit))}`); }
+  getEvent(id: string) { return this.call(`/api/v1/events/${encodeURIComponent(id)}`); }
   getMarket(id: string) { return this.call(`/api/v1/markets/${id}`); }
   guardMarket(input: unknown) { return this.call("/api/v1/guard", input); }
   getMarketIntelligence(marketId: string) { return this.call(`/api/v1/markets/${encodeURIComponent(marketId)}/intelligence`); }
@@ -37,11 +38,13 @@ export class MarketLint {
   }
   actOnIncident(incidentId: string, action: "ACKNOWLEDGE" | "RESOLVE" | "REOPEN", note?: string) { return this.call(`/api/v1/incidents/${encodeURIComponent(incidentId)}`, { action, note }); }
   getResolutionReadiness(marketId: string) { return this.call(`/api/v1/markets/${marketId}/resolution-readiness`); }
-  getEventDivergence(eventId: string) { return this.call(`/api/v1/events/${eventId}/divergence`); }
-  getConsensus(eventId: string) { return this.call(`/api/v1/events/${eventId}/consensus`); }
+  getEventDivergence(eventId: string) { return this.call(`/api/v1/events/${encodeURIComponent(eventId)}/divergence`); }
+  getConsensus(eventId: string) { return this.call(`/api/v1/events/${encodeURIComponent(eventId)}/consensus`); }
   getEventConfidence(eventId: string) { return this.getConsensus(eventId); }
   getProtocolReputation(id: string) { return this.call(`/api/v1/protocols/${id}/reputation`); }
-  getEventGraph(id: string) { return this.call(`/api/v1/events/${id}/graph`); }
+  getEventGraph(id: string) { return this.call(`/api/v1/events/${encodeURIComponent(id)}/graph`); }
+  getEventRelationshipReviewQueue(limit = 100) { return this.call(`/api/v1/event-relationships?limit=${encodeURIComponent(String(limit))}`); }
+  decideEventRelationship(relationshipId: string, decision: "CONFIRM_SAME_EVENT" | "MARK_RELATED" | "REJECT", note?: string) { return this.call(`/api/v1/event-relationships/${encodeURIComponent(relationshipId)}`, { decision, note }); }
   ask(question: string) { return this.call("/api/v1/ask", { question }); }
   getHistory(eventId: string) { return this.call(`/api/v1/feed/events/${eventId}`); }
   resolveMarketId(protocol: string, externalMarketId: string) { return this.call(`/api/v1/resolve-market-id?protocol=${encodeURIComponent(protocol)}&externalMarketId=${encodeURIComponent(externalMarketId)}`); }
