@@ -57,6 +57,14 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ i
 
   if (!market || !intelligence || !review) notFound();
   const latestDecision = decisions.at(0);
+  const evidenceRows: Array<[string, unknown]> = [
+    ["Resolution source", market.resolutionSource],
+    ["Liquidity", market.liquidity],
+    ["Volume", market.volume],
+    ["Outcomes", market.outcomes],
+    ["Canonical event", market.canonicalEvent?.id],
+    ["Last ingested", market.lastIngestedAt.toISOString()],
+  ];
 
   return <main className="min-h-screen bg-white text-zinc-950">
     <header className="mx-auto max-w-7xl border-x border-zinc-200 p-8 md:p-12">
@@ -114,14 +122,7 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ i
       <div className="border-b border-zinc-200 p-8 lg:border-b-0 lg:border-r">
         <p className="font-mono text-[10px] tracking-[.18em] text-zinc-500">MARKET EVIDENCE</p>
         <dl className="mt-5 divide-y divide-zinc-200 border-y border-zinc-200 text-sm">
-          {[
-            ["Resolution source", market.resolutionSource],
-            ["Liquidity", market.liquidity],
-            ["Volume", market.volume],
-            ["Outcomes", market.outcomes],
-            ["Canonical event", market.canonicalEvent?.id],
-            ["Last ingested", market.lastIngestedAt.toISOString()],
-          ].map(([label, value]) => <div key={String(label)} className="grid gap-2 py-3 md:grid-cols-[150px_1fr]"><dt className="text-zinc-500">{label}</dt><dd className="break-words font-mono text-xs">{display(value)}</dd></div>)}
+          {evidenceRows.map(([label, value]) => <div key={label} className="grid gap-2 py-3 md:grid-cols-[150px_1fr]"><dt className="text-zinc-500">{label}</dt><dd className="break-words font-mono text-xs">{display(value)}</dd></div>)}
         </dl>
         {market.description ? <div className="mt-5"><p className="text-xs text-zinc-500">Description</p><p className="mt-2 text-sm leading-6">{market.description}</p></div> : null}
       </div>
