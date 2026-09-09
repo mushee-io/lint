@@ -1,12 +1,13 @@
 import { AccessError, requireAccess } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { recordWatchBaseline } from "@/lib/watch-engine";
 
 export async function GET(request: Request) {
   try {
     const context = await requireAccess(request, { permission: "watch:read" });
     const watches = await prisma.watchRegistration.findMany({
       where: { organizationId: context.organizationId },
-      include: { market: true, protocol: true },
+      include: { market: true, protocol: true, riskSignals: { orderBy: { detectedAt: "desc" }, take: 5 } },
       orderBy: { createdAt: "desc" },
     });
     return Response.json({ data: watches });
@@ -29,11 +30,23 @@ export async function POST(request: Request) {
     ]);
     if (!market) return Response.json({ error: { message: "Market not found" } }, { status: 404 });
     if (!protocol) return Response.json({ error: { message: "Protocol not found in this organization" } }, { status: 404 });
+    const existing = await prisma.watchRegistration.findUnique({ where: { organizationId_marketId: { organizationId: context.organizationId, marketId: market.id } } });
     const watch = await prisma.watchRegistration.upsert({
       where: { organizationId_marketId: { organizationId: context.organizationId, marketId: market.id } },
       update: { protocolId: protocol.id, active: true },
       create: { organizationId: context.organizationId, protocolId: protocol.id, marketId: market.id },
     });
+    if (!existing) {
+      await recordWatchBaseline({
+        organizationId: context.organizationId,
+        watchId: watch.id,
+        marketId: market.id,
+        resolutionSource: market.resolutionSource,
+        marketStatus: market.status,
+        actorType: context.actorType,
+        actorId: context.actorId,
+      });
+    }
     return Response.json({ data: watch }, { status: 201 });
   } catch (error) {
     if (error instanceof AccessError) return Response.json({ error: { message: error.message } }, { status: error.status });
