@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, Braces, CheckCircle2, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, Braces, CheckCircle2, Radio, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { MarketLintFooter, MarketLintNav, MotionField, SectionTag } from "@/components/market-lint-brand";
 
@@ -22,6 +22,7 @@ export default function ConnectPage() {
   const [result, setResult] = useState<unknown>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [rainLoading, setRainLoading] = useState(false);
 
   async function validate() {
     setLoading(true);
@@ -40,6 +41,23 @@ export default function ConnectPage() {
     }
   }
 
+  async function testLiveRain() {
+    setRainLoading(true);
+    setError("");
+    setResult(null);
+    try {
+      const response = await fetch("/api/v1/live/rain?limit=5", { cache: "no-store" });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error?.detail ?? body.error?.message ?? "Live Rain feed unavailable");
+      setPayload(JSON.stringify(body.data.payload, null, 2));
+      setResult(body.data);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Live Rain test failed");
+    } finally {
+      setRainLoading(false);
+    }
+  }
+
   return (
     <main className="ml-page">
       <MarketLintNav />
@@ -52,7 +70,10 @@ export default function ConnectPage() {
             <p className="ml-copy mt-7 max-w-2xl text-lg md:text-xl">Start with one read-only market payload. See how Market Lint normalizes it and what Guard would flag before you integrate a private feed.</p>
           </div>
           <div className="mt-10 flex flex-wrap gap-3">
-            <a href="#sandbox" className="ml-button-primary">Test a market <ArrowUpRight className="size-4" /></a>
+            <button onClick={() => void testLiveRain()} disabled={rainLoading} className="ml-button-primary disabled:opacity-50">
+              <Radio className="size-4" /> {rainLoading ? "Loading Rain…" : "Test live Rain market"}
+            </button>
+            <a href="#sandbox" className="ml-button-secondary">Paste your own market <ArrowUpRight className="size-4" /></a>
             <a href="/developers" className="ml-button-secondary">Developer API <ArrowUpRight className="size-4" /></a>
           </div>
         </div>
@@ -79,7 +100,12 @@ export default function ConnectPage() {
             <span className="ml-eyebrow">READ-ONLY PARTNER SANDBOX</span>
             <h2 className="mt-3 text-4xl tracking-[-.055em] sm:text-5xl">Test Market Lint before integration.</h2>
           </div>
-          <div className="ml-mono text-[10px] tracking-[.1em] text-[var(--ml-muted)]">NOTHING ON THIS PAGE IS PERSISTED</div>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="ml-mono text-[10px] tracking-[.1em] text-[var(--ml-muted)]">NOTHING ON THIS PAGE IS PERSISTED</span>
+            <button onClick={() => void testLiveRain()} disabled={rainLoading} className="ml-button-primary disabled:opacity-50">
+              <Radio className="size-4" /> {rainLoading ? "Loading Rain…" : "Test live Rain"}
+            </button>
+          </div>
         </div>
 
         <div className="grid gap-4 xl:grid-cols-2">
@@ -96,7 +122,12 @@ export default function ConnectPage() {
 
             <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
               <p className="ml-copy text-xs">Metadata only: IDs, wording, outcomes, timing, pricing, liquidity and resolution rules/source.</p>
-              <button onClick={() => void validate()} disabled={loading} className="ml-button-primary disabled:opacity-50">{loading ? "Validating…" : "Validate payload"} <ArrowUpRight className="size-4" /></button>
+              <div className="flex flex-wrap gap-3">
+                <button onClick={() => void testLiveRain()} disabled={rainLoading || loading} className="ml-button-secondary disabled:opacity-50">
+                  <Radio className="size-4" /> {rainLoading ? "Loading…" : "Load live Rain"}
+                </button>
+                <button onClick={() => void validate()} disabled={loading || rainLoading} className="ml-button-primary disabled:opacity-50">{loading ? "Validating…" : "Validate payload"} <ArrowUpRight className="size-4" /></button>
+              </div>
             </div>
             {error ? <div className="mt-5 border border-[var(--ml-line)] bg-red-50 p-4 text-sm text-red-700">{error}</div> : null}
           </div>
@@ -115,6 +146,7 @@ export default function ConnectPage() {
             ) : (
               <div className="mt-7 grid gap-4">
                 {[
+                  ["LIVE RAIN", "One click pulls a real public Rain market and runs Guard v2. No Rain credentials are required."],
                   ["NORMALIZE", "Market Lint maps your fields into one consistent market model."],
                   ["GUARD", "The same deterministic Guard engine used by the product evaluates construction quality."],
                   ["NO CUSTODY", "No wallets, private keys, order permissions or trading credentials are required."],
