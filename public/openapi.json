@@ -3,7 +3,7 @@
   "info": {
     "title": "Market Lint API",
     "version": "1.0.0",
-    "description": "Prediction-market intelligence infrastructure: Guard, Watch, Event Graph, Consensus and enterprise controls."
+    "description": "Prediction-market intelligence infrastructure: Guard, Watch, Event Graph, Consensus, enterprise controls and measured partner pilots."
   },
   "components": {
     "securitySchemes": {
@@ -20,7 +20,7 @@
     "/api/v1/watch": { "post": { "summary": "Register continuous market surveillance" } },
     "/api/v1/signals": { "get": { "summary": "List tenant risk signals" } },
     "/api/v1/incidents": { "get": { "summary": "List Watch incidents" } },
-    "/api/v1/incidents/{id}": { "post": { "summary": "Acknowledge, resolve or reopen an incident" } },
+    "/api/v1/incidents/{id}": { "post": { "summary": "Acknowledge, resolve or reopen an incident with response-time measurement" } },
     "/api/v1/events": { "get": { "summary": "List canonical events" } },
     "/api/v1/events/{id}/graph": { "get": { "summary": "Get universal event graph neighborhood" } },
     "/api/v1/event-relationships": { "get": { "summary": "List event relationship review queue" } },
@@ -36,7 +36,12 @@
     "/api/v1/enterprise/policy": { "get": { "summary": "Get tenant enterprise policy" } },
     "/api/v1/enterprise/usage": { "get": { "summary": "Get tenant API usage and quota state" } },
     "/api/v1/enterprise/readiness": { "get": { "summary": "Get production-readiness evidence" } },
-    "/api/v1/enterprise/audit-export": { "get": { "summary": "Export tenant audit evidence as CSV or JSON" } }
+    "/api/v1/enterprise/audit-export": { "get": { "summary": "Export tenant audit evidence as CSV or JSON" } },
+    "/api/v1/pilots/{id}/activate": { "post": { "summary": "Activate a measured partner pilot and issue a protocol-bound live key" } },
+    "/api/v1/partner/markets": { "post": { "summary": "Ingest a partner market-feed batch and optionally place markets under Watch" } },
+    "/api/v1/pilots/{id}/status": { "get": { "summary": "Get partner-pilot integration checklist and measured status" } },
+    "/api/v1/pilots/{id}/report": { "get": { "summary": "Get pilot metrics or generate the persisted JSON+HTML impact report" } },
+    "/api/v1/feedback": { "get": { "summary": "List tenant feedback" }, "post": { "summary": "Submit partner feedback including false-positive and false-negative labels" } }
   },
   "security": [{ "bearerAuth": [] }, { "apiKey": [] }]
 }
