@@ -2,6 +2,10 @@ import crypto from "node:crypto";
 import { Market } from "@/lib/market-types";
 import { scoreMarket } from "@/lib/market-score";
 
+type RawEvent = {
+  slug?: string;
+};
+
 type Raw = {
   id: string;
   question?: string;
@@ -16,6 +20,7 @@ type Raw = {
   active?: boolean;
   closed?: boolean;
   slug?: string;
+  events?: RawEvent[];
   createdAt?: string;
   updatedAt?: string;
 };
@@ -33,6 +38,16 @@ function array(value?: string | unknown[]) {
   } catch {
     return [];
   }
+}
+
+function polymarketUrl(raw: Raw) {
+  const marketSlug = raw.slug?.trim();
+  const eventSlug = raw.events?.find((event) => event?.slug)?.slug?.trim();
+  if (eventSlug && marketSlug) {
+    return `https://polymarket.com/event/${encodeURIComponent(eventSlug)}/${encodeURIComponent(marketSlug)}`;
+  }
+  if (eventSlug) return `https://polymarket.com/event/${encodeURIComponent(eventSlug)}`;
+  return `https://polymarket.com/search?q=${encodeURIComponent(raw.question || marketSlug || raw.id)}`;
 }
 
 export function normalizePolymarket(raw: Raw): Market {
@@ -54,7 +69,7 @@ export function normalizePolymarket(raw: Raw): Market {
     resolutionTime: raw.endDate ?? "",
     resolutionSource: raw.resolutionSource ?? "UNAVAILABLE",
     status: (raw.closed ? "RESOLVED" : raw.active ? "OPEN" : "CLOSED") as Market["status"],
-    marketUrl: `https://polymarket.com/event/${raw.slug ?? raw.id}`,
+    marketUrl: polymarketUrl(raw),
     creator: "UNAVAILABLE",
     liquidity: number(raw.liquidity),
     volume: number(raw.volume),
@@ -72,7 +87,11 @@ export async function fetchPolymarketRecords(limit = 25) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8_000);
   try {
-    const response = await fetch(`https://gamma-api.polymarket.com/markets?limit=${Math.min(Math.max(limit, 1), 100)}`, {
+    const url = new URL("https://gamma-api.polymarket.com/markets");
+    url.searchParams.set("limit", String(Math.min(Math.max(limit, 1), 100)));
+    url.searchParams.set("active", "true");
+    url.searchParams.set("closed", "false");
+    const response = await fetch(url, {
       signal: controller.signal,
       headers: { Accept: "application/json", "User-Agent": "MarketLint/0.1" },
       cache: "no-store",
