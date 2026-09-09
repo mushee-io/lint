@@ -51,6 +51,8 @@ jobs:
         run: npm test
       - name: Guard v2 API smoke
         run: npx tsx scripts/guard-api-smoke.ts
+      - name: Market intelligence API smoke
+        run: npx tsx scripts/market-intelligence-smoke.ts
       - name: Production dependency audit
         run: npm run security:audit
       - name: Live Polymarket persistence smoke
