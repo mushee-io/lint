@@ -1,3 +1,4 @@
+import { Prisma } from "@/generated/prisma/client";
 import { AccessError, requireAccess, type AccessContext } from "@/lib/auth";
 import { reviewPersistedMarket } from "@/lib/ai-reviewer";
 import { prisma } from "@/lib/db";
@@ -16,6 +17,22 @@ function requestedMode(value: unknown): ReviewMode {
 
 async function persistReview(context: AccessContext | null, marketId: string, review: NonNullable<Awaited<ReturnType<typeof reviewPersistedMarket>>>) {
   if (!context) return null;
+  const metadata = {
+    verdict: review.verdict,
+    confidence: review.confidence,
+    summary: review.summary,
+    findings: review.findings,
+    suggestedMarketRewrite: review.suggestedMarketRewrite,
+    suggestedSettlementRules: review.suggestedSettlementRules,
+    operatorActions: review.operatorActions,
+    uncertainty: review.uncertainty,
+    mode: review.mode,
+    providerStatus: review.providerStatus,
+    model: review.model,
+    grounding: review.grounding,
+    generatedAt: review.generatedAt,
+  } as unknown as Prisma.InputJsonValue;
+
   return prisma.auditLog.create({
     data: {
       organizationId: context.organizationId,
@@ -24,21 +41,7 @@ async function persistReview(context: AccessContext | null, marketId: string, re
       action: "MARKET_AI_REVIEW",
       resourceType: "Market",
       resourceId: marketId,
-      metadata: {
-        verdict: review.verdict,
-        confidence: review.confidence,
-        summary: review.summary,
-        findings: review.findings,
-        suggestedMarketRewrite: review.suggestedMarketRewrite,
-        suggestedSettlementRules: review.suggestedSettlementRules,
-        operatorActions: review.operatorActions,
-        uncertainty: review.uncertainty,
-        mode: review.mode,
-        providerStatus: review.providerStatus,
-        model: review.model,
-        grounding: review.grounding,
-        generatedAt: review.generatedAt,
-      },
+      metadata,
     },
   });
 }
