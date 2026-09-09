@@ -53,7 +53,7 @@ describe("Guard v2", () => {
   it("flags subjective wording and explains how to repair it", () => {
     const result = evaluateGuard({
       ...strongMarket,
-      title: "Will Bitcoin have a successful and impressive year by December 31, 2026?",
+      title: "Will Bitcoin have a successful, impressive and good year by December 31, 2026?",
     }, [], now);
     expect(result.decision).not.toBe("ALLOW");
     expect(result.risks.ambiguity).not.toBe("LOW");
