@@ -9,10 +9,10 @@ const TOKEN_ALIASES: Record<string, string> = {
   eth: "ethereum",
   ether: "ethereum",
   usa: "us",
-  u: "us",
 };
 const ABOVE = new Set(["above", "over", "exceed", "exceeds", "exceeded", "greater", "reach", "reaches", "reached", "hit", "hits"]);
 const BELOW = new Set(["below", "under", "less", "lower"]);
+const CONDITION_WORDS = new Set([...ABOVE, ...BELOW, ...NEGATIONS]);
 
 export type CanonicalRelationshipType = "SAME_EVENT" | "POSSIBLE_SAME_EVENT" | "RELATED_EVENT" | "UNRELATED";
 
@@ -36,6 +36,7 @@ export type CanonicalRelationshipAssessment = {
 export function normalizeCanonicalTitle(title: string) {
   return title
     .toLowerCase()
+    .replace(/\bu\.?s\.?\b/g, "us")
     .replace(/(\d),(?=\d)/g, "$1")
     .replace(/[^a-z0-9.]+/g, " ")
     .trim();
@@ -60,6 +61,10 @@ function tokens(title: string) {
 
 function significant(title: string) {
   return tokens(title).filter((token) => token.length > 1 && !STOP_WORDS.has(token) && normalizeMagnitude(token) == null);
+}
+
+function topicTokens(title: string) {
+  return significant(title).filter((token) => !CONDITION_WORDS.has(token));
 }
 
 function numericSignature(title: string) {
@@ -110,7 +115,7 @@ export function classifyCanonicalRelationship(left: string, right: string): Cano
   const leftDirection = directionSignature(left);
   const rightDirection = directionSignature(right);
   const compatibleDirection = leftDirection === "NONE" || rightDirection === "NONE" || leftDirection === rightDirection;
-  const topicSimilarity = jaccard(significant(left), significant(right));
+  const topicSimilarity = jaccard(topicTokens(left), topicTokens(right));
   const titleSimilarity = compatibleNumbers && compatibleNegation && compatibleDirection ? canonicalTitleSimilarity(left, right) : 0;
 
   if (normalizeCanonicalTitle(left) === normalizeCanonicalTitle(right)) {
