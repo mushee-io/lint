@@ -91,7 +91,7 @@ export async function POST(request: Request) {
         ...evaluation,
         createdAt: persisted.createdAt.toISOString(),
       },
-    }, { status: 201 });
+    });
   } catch (error) {
     if (error instanceof AccessError) return Response.json({ error: { message: error.message } }, { status: error.status });
     return Response.json({ error: { message: "Persistent Guard unavailable", detail: error instanceof Error ? error.message : "Unknown error" } }, { status: 503 });
