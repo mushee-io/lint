@@ -22,7 +22,8 @@ export default async function Protocol() {
   ] : [["MARKETS MONITORED", "—"], ["FRESHNESS RISK", "—"], ["HIGH SIGNALS / 24H", "—"], ["CANONICAL EVENTS", "—"], ["WORKER QUEUE", "—"]];
 
   const links = [
-    ["Monitored markets", "/protocol/markets", true],
+    ["Operator dashboard", "/protocol/operator", true],
+    ["Monitored markets", "/protocol/markets", false],
     ["Production validation", "/protocol/validation", false],
     ["Guard history", "/protocol/guard", false],
     ["Watch", "/protocol/watch", false],
