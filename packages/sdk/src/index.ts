@@ -47,6 +47,11 @@ export class MarketLint {
   getEventGraph(id: string) { return this.call(`/api/v1/events/${encodeURIComponent(id)}/graph`); }
   getEventRelationshipReviewQueue(limit = 100) { return this.call(`/api/v1/event-relationships?limit=${encodeURIComponent(String(limit))}`); }
   decideEventRelationship(relationshipId: string, decision: "CONFIRM_SAME_EVENT" | "MARK_RELATED" | "REJECT", note?: string) { return this.call(`/api/v1/event-relationships/${encodeURIComponent(relationshipId)}`, { decision, note }); }
+  getEnterpriseUsage() { return this.call("/api/v1/enterprise/usage"); }
+  getEnterpriseReadiness() { return this.call("/api/v1/enterprise/readiness"); }
+  getTenantPolicy() { return this.call("/api/v1/enterprise/policy"); }
+  getWebhookStats() { return this.call("/api/v1/webhooks/stats"); }
+  rotateApiKey(id: string) { return this.call("/api/v1/api-keys/rotate", { id }); }
   ask(question: string) { return this.call("/api/v1/ask", { question }); }
   getHistory(eventId: string) { return this.call(`/api/v1/feed/events/${eventId}`); }
   resolveMarketId(protocol: string, externalMarketId: string) { return this.call(`/api/v1/resolve-market-id?protocol=${encodeURIComponent(protocol)}&externalMarketId=${encodeURIComponent(externalMarketId)}`); }
