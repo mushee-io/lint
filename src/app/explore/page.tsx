@@ -7,6 +7,13 @@ import type { Market } from "@/lib/market-types";
 type Source = { protocol: string; status: "LIVE" | "UNAVAILABLE"; marketCount: number; retrievedAt: string | null; error: string | null };
 type Network = { mode: "LIVE_PUBLIC_DATA"; generatedAt: string; sources: Source[]; markets: Market[] };
 
+async function loadNetwork() {
+  const response = await fetch("/api/v1/live/network?limit=40", { cache: "no-store" });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error?.detail ?? body.error?.message ?? "Live network unavailable");
+  return body.data as Network;
+}
+
 export default function Explore() {
   const [query, setQuery] = useState("");
   const [data, setData] = useState<Network | null>(null);
@@ -16,19 +23,19 @@ export default function Explore() {
   const refresh = useCallback(async () => {
     setLoading(true);
     setError("");
-    try {
-      const response = await fetch("/api/v1/live/network?limit=40", { cache: "no-store" });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error?.detail ?? body.error?.message ?? "Live network unavailable");
-      setData(body.data);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Live network unavailable");
-    } finally {
-      setLoading(false);
-    }
+    try { setData(await loadNetwork()); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : "Live network unavailable"); }
+    finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    let active = true;
+    loadNetwork()
+      .then((network) => { if (active) setData(network); })
+      .catch((caught) => { if (active) setError(caught instanceof Error ? caught.message : "Live network unavailable"); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   const shown = useMemo(() => {
     const normalized = query.trim().toLowerCase();
