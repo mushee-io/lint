@@ -26,12 +26,14 @@ export default async function Protocol() {
     ["Incident queue", "/protocol/incidents", true],
     ["Universal event graph", "/protocol/graph", true],
     ["Consensus control center", "/protocol/consensus", true],
+    ["Enterprise control center", "/protocol/enterprise", true],
     ["Monitored markets", "/protocol/markets", false],
     ["Production validation", "/protocol/validation", false],
     ["Guard history", "/protocol/guard", false],
     ["Watch", "/protocol/watch", false],
     ["Signals", "/protocol/signals", false],
     ["Pilot control center", "/protocol/pilot", false],
+    ["Developer portal", "/developers", false],
     ["Demo simulator", "/protocol/demo", false],
   ] as const;
 
