@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import { prisma } from "../src/lib/db";
+import { createApiKey } from "../src/lib/auth";
 import { ingestPolymarket } from "../src/lib/ingestion";
 import { GET as getIntelligence } from "../src/app/api/v1/markets/[id]/intelligence/route";
+import { POST as reviewMarket } from "../src/app/api/v1/markets/[id]/review/route";
 
 async function main() {
   const ingestion = await ingestPolymarket(5);
@@ -46,6 +49,51 @@ async function main() {
   );
   assert.equal(missingResponse.status, 404);
 
+  const unauthenticatedAi = await reviewMarket(
+    new Request(`http://localhost/api/v1/markets/${market.id}/review`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ mode: "ai" }),
+    }),
+    { params: Promise.resolve({ id: market.id }) },
+  );
+  assert.equal(unauthenticatedAi.status, 401, "Public callers could trigger paid AI review");
+
+  const suffix = `${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
+  const organization = await prisma.organization.create({ data: { name: `Intelligence Smoke ${suffix}`, slug: `intelligence-smoke-${suffix}` } });
+  try {
+    const apiKey = await createApiKey({ organizationId: organization.id, permissions: ["intelligence:review"], label: "milestone-3-smoke" });
+    const reviewResponse = await reviewMarket(
+      new Request(`http://localhost/api/v1/markets/${market.id}/review`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${apiKey.secret}` },
+        body: JSON.stringify({ mode: "deterministic" }),
+      }),
+      { params: Promise.resolve({ id: market.id }) },
+    );
+    assert.equal(reviewResponse.status, 200);
+    const reviewPayload = await reviewResponse.json() as { data: {
+      reviewId: string | null;
+      marketId: string;
+      verdict: string;
+      mode: string;
+      providerStatus: string;
+      grounding: { policy: string; generatedFrom: string; dimensionCodes: string[] };
+    } };
+    assert.equal(reviewPayload.data.marketId, market.id);
+    assert(["CLEAR", "REVIEW", "HIGH_RISK"].includes(reviewPayload.data.verdict));
+    assert.equal(reviewPayload.data.mode, "DETERMINISTIC_FALLBACK");
+    assert.equal(reviewPayload.data.providerStatus, "BYPASSED");
+    assert.equal(reviewPayload.data.grounding.policy, "AI_EXPLAINS_DETERMINISTIC_INTELLIGENCE");
+    assert.equal(reviewPayload.data.grounding.generatedFrom, "PERSISTED_MARKET_INTELLIGENCE");
+    assert.equal(reviewPayload.data.grounding.dimensionCodes.length, 7);
+    assert(reviewPayload.data.reviewId, "Authenticated review was not persisted");
+    const audit = await prisma.auditLog.findUnique({ where: { id: reviewPayload.data.reviewId! } });
+    assert.equal(audit?.action, "MARKET_AI_REVIEW");
+  } finally {
+    await prisma.organization.delete({ where: { id: organization.id } });
+  }
+
   console.log(JSON.stringify({
     status: "PASS",
     marketId: payload.data.marketId,
@@ -54,6 +102,9 @@ async function main() {
     intelligenceStatus: payload.data.status,
     dimensions: payload.data.dimensions.length,
     notFoundBoundary: "PASS",
+    paidAiProtection: "PASS",
+    groundedReviewerFallback: "PASS",
+    durableReviewerAudit: "PASS",
   }, null, 2));
 }
 
