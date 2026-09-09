@@ -1,4 +1,5 @@
 import { Prisma } from "@/generated/prisma/client";
+import { fetchKalshiRecords } from "@/integrations/kalshi";
 import { fetchManifoldRecords } from "@/integrations/manifold";
 import { fetchPolymarketRecords } from "@/integrations/polymarket";
 import { deterministicCanonicalEventId, resolveCanonicalEvent } from "@/lib/canonical";
@@ -163,4 +164,8 @@ export function ingestPolymarket(limit = 25, fetchRecords: SourceFetcher = fetch
 
 export function ingestManifold(limit = 25, fetchRecords: SourceFetcher = fetchManifoldRecords) {
   return ingestSource({ source: "manifold-v0", protocolName: "Manifold", normalizationVersion: "manifold-v1", fetchRecords }, limit);
+}
+
+export function ingestKalshi(limit = 25, fetchRecords: SourceFetcher = fetchKalshiRecords) {
+  return ingestSource({ source: "kalshi-public-rest", protocolName: "Kalshi", normalizationVersion: "kalshi-v1", fetchRecords }, limit);
 }
