@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import { ArrowUpRight, Braces, CheckCircle2, ShieldCheck } from "lucide-react";
 import { useState } from "react";
+import { MarketLintFooter, MarketLintNav, MotionField, SectionTag } from "@/components/market-lint-brand";
 
 const starter = JSON.stringify({
   externalId: "market-123",
@@ -39,29 +40,115 @@ export default function ConnectPage() {
     }
   }
 
-  return <main className="min-h-screen bg-white text-zinc-950">
-    <header className="mx-auto max-w-7xl border-x border-zinc-200 px-6 py-8 md:px-10">
-      <div className="flex items-center justify-between gap-4"><Link href="/" className="text-sm underline underline-offset-4">MARKET LINT</Link><Link href="/explore" className="text-sm underline underline-offset-4">Live demo</Link></div>
-      <p className="mt-12 font-mono text-[11px] tracking-[.18em] text-zinc-500">PARTNER SANDBOX / NO CREDENTIALS REQUIRED</p>
-      <h1 className="mt-3 max-w-4xl text-6xl tracking-[-.07em]">Connect your prediction market.</h1>
-      <p className="mt-5 max-w-2xl text-lg leading-8 text-zinc-600">You do not need to give Market Lint trading access. Start by validating one read-only market payload below. Nothing on this page is persisted.</p>
-    </header>
+  return (
+    <main className="ml-page">
+      <MarketLintNav />
 
-    <section className="mx-auto grid max-w-7xl border border-zinc-200 border-t-0 md:grid-cols-2">
-      <div className="p-6 md:p-10">
-        <p className="font-mono text-[11px] tracking-[.16em] text-zinc-500">01 / TEST YOUR SCHEMA</p>
-        <textarea value={payload} onChange={(event) => setPayload(event.target.value)} className="mt-5 min-h-[440px] w-full border border-zinc-300 p-4 font-mono text-xs leading-6 outline-none focus:border-zinc-950" />
-        <button onClick={() => void validate()} disabled={loading} className="mt-4 bg-zinc-950 px-5 py-3 text-sm text-white disabled:opacity-50">{loading ? "Validating…" : "Validate payload"}</button>
-        {error ? <p className="mt-4 border border-zinc-300 p-4 text-sm">{error}</p> : null}
-      </div>
-      <div className="border-t border-zinc-200 p-6 md:border-t-0 md:border-l md:p-10">
-        <p className="font-mono text-[11px] tracking-[.16em] text-zinc-500">02 / MARKET LINT PREVIEW</p>
-        {result ? <pre className="mt-5 max-h-[560px] overflow-auto whitespace-pre-wrap bg-zinc-50 p-4 text-xs leading-6">{JSON.stringify(result, null, 2)}</pre> : <div className="mt-5 space-y-5 text-zinc-600"><p>Validation returns the normalized payload plus a real deterministic Guard preview.</p><p>When you move to a pilot, Market Lint creates a tenant-scoped live key and your platform can send market batches to <code className="bg-zinc-100 px-1">POST /api/v1/partner/markets</code>.</p><p>Market Lint needs market metadata only: IDs, wording, outcomes, timing, probability, liquidity/volume where available, and resolution rules/source. No wallet keys, trading permissions, or custody access are required.</p></div>}
-      </div>
-    </section>
+      <section className="ml-shell ml-grid-bg grid border-b border-[var(--ml-line)] bg-[var(--ml-ice)] lg:grid-cols-[1.05fr_.95fr]">
+        <div className="flex min-h-[520px] flex-col justify-between border-b border-[var(--ml-line)] p-6 sm:p-10 lg:border-b-0 lg:border-r lg:p-14 xl:p-16">
+          <div>
+            <SectionTag>Partner sandbox / no credentials required</SectionTag>
+            <h1 className="ml-display mt-10 max-w-4xl text-[clamp(4rem,7vw,7.6rem)]">Connect your platform.</h1>
+            <p className="ml-copy mt-7 max-w-2xl text-lg md:text-xl">Start with one read-only market payload. See how Market Lint normalizes it and what Guard would flag before you integrate a private feed.</p>
+          </div>
+          <div className="mt-10 flex flex-wrap gap-3">
+            <a href="#sandbox" className="ml-button-primary">Test a market <ArrowUpRight className="size-4" /></a>
+            <a href="/developers" className="ml-button-secondary">Developer API <ArrowUpRight className="size-4" /></a>
+          </div>
+        </div>
+        <MotionField compact />
+      </section>
 
-    <section className="mx-auto grid max-w-7xl border-x border-b border-zinc-200 md:grid-cols-3">
-      {[["1. Validate", "Test your market JSON publicly without credentials or persistence."], ["2. Pilot", "Receive a tenant-scoped API key and send a read-only market feed."], ["3. Measure", "Run Guard + Watch and produce a feedback-backed pilot report."]].map(([title, copy]) => <div key={title} className="border-b border-zinc-200 p-6 last:border-b-0 md:border-b-0 md:border-r md:last:border-r-0"><strong>{title}</strong><p className="mt-3 text-sm leading-6 text-zinc-600">{copy}</p></div>)}
-    </section>
-  </main>;
+      <section className="ml-shell grid border-b border-[var(--ml-line)] bg-white md:grid-cols-3">
+        {[
+          ["01", "VALIDATE", "Paste one market payload publicly. No account, persistence, wallet or trading access."],
+          ["02", "PILOT", "Move to a tenant-scoped live key and send read-only market batches when you are ready."],
+          ["03", "MEASURE", "Run Guard + Watch and turn the pilot into a measurable operator report."],
+        ].map(([step, title, copy]) => (
+          <div key={step} className="min-h-52 border-b border-[var(--ml-line)] p-7 last:border-b-0 md:border-b-0 md:border-r md:last:border-r-0">
+            <span className="ml-mono text-[10px] text-slate-400">{step}</span>
+            <h2 className="mt-7 text-3xl tracking-[-.05em]">{title}</h2>
+            <p className="ml-copy mt-4 text-sm">{copy}</p>
+          </div>
+        ))}
+      </section>
+
+      <section id="sandbox" className="ml-shell ml-grid-bg border-b border-[var(--ml-line)] bg-[var(--ml-pale)] p-4 sm:p-6 lg:p-8">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-5 border border-[var(--ml-line)] bg-white p-6 sm:p-8">
+          <div>
+            <span className="ml-eyebrow">READ-ONLY PARTNER SANDBOX</span>
+            <h2 className="mt-3 text-4xl tracking-[-.055em] sm:text-5xl">Test Market Lint before integration.</h2>
+          </div>
+          <div className="ml-mono text-[10px] tracking-[.1em] text-[var(--ml-muted)]">NOTHING ON THIS PAGE IS PERSISTED</div>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          <div className="ml-cut-card border border-[var(--ml-line)] bg-white p-6 sm:p-8">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <span className="ml-eyebrow">01 / INPUT</span>
+                <h3 className="mt-3 text-3xl tracking-[-.05em]">Market payload</h3>
+              </div>
+              <span className="grid size-12 place-items-center border border-[var(--ml-line)] bg-[var(--ml-pale)]"><Braces className="size-5 text-[var(--ml-cobalt)]" /></span>
+            </div>
+
+            <textarea value={payload} onChange={(event) => setPayload(event.target.value)} spellCheck={false} className="mt-7 min-h-[500px] w-full resize-y border border-[var(--ml-line)] bg-[var(--ml-ice)] p-5 font-mono text-xs leading-6 text-[var(--ml-ink)] outline-none transition focus:border-[var(--ml-cobalt)]" />
+
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
+              <p className="ml-copy text-xs">Metadata only: IDs, wording, outcomes, timing, pricing, liquidity and resolution rules/source.</p>
+              <button onClick={() => void validate()} disabled={loading} className="ml-button-primary disabled:opacity-50">{loading ? "Validating…" : "Validate payload"} <ArrowUpRight className="size-4" /></button>
+            </div>
+            {error ? <div className="mt-5 border border-[var(--ml-line)] bg-red-50 p-4 text-sm text-red-700">{error}</div> : null}
+          </div>
+
+          <div className="ml-cut-card border border-[var(--ml-line)] bg-white p-6 sm:p-8">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <span className="ml-eyebrow">02 / OUTPUT</span>
+                <h3 className="mt-3 text-3xl tracking-[-.05em]">Market Lint preview</h3>
+              </div>
+              <span className="grid size-12 place-items-center border border-[var(--ml-line)] bg-[var(--ml-pale)]"><ShieldCheck className="size-5 text-[var(--ml-cobalt)]" /></span>
+            </div>
+
+            {result ? (
+              <pre className="mt-7 max-h-[610px] overflow-auto whitespace-pre-wrap border border-[var(--ml-line)] bg-[#102044] p-5 font-mono text-xs leading-6 text-[#dff3ff]">{JSON.stringify(result, null, 2)}</pre>
+            ) : (
+              <div className="mt-7 grid gap-4">
+                {[
+                  ["NORMALIZE", "Market Lint maps your fields into one consistent market model."],
+                  ["GUARD", "The same deterministic Guard engine used by the product evaluates construction quality."],
+                  ["NO CUSTODY", "No wallets, private keys, order permissions or trading credentials are required."],
+                ].map(([title, copy]) => (
+                  <div key={title} className="border border-[var(--ml-line)] bg-[var(--ml-ice)] p-5">
+                    <div className="flex items-center gap-2 text-[var(--ml-cobalt)]"><CheckCircle2 className="size-4" /><span className="ml-eyebrow">{title}</span></div>
+                    <p className="ml-copy mt-3 text-sm">{copy}</p>
+                  </div>
+                ))}
+                <div className="mt-2 border border-[var(--ml-line)] bg-[var(--ml-pale)] p-5">
+                  <span className="ml-eyebrow">PILOT ENDPOINT</span>
+                  <code className="mt-3 block font-mono text-sm text-[var(--ml-cobalt)]">POST /api/v1/partner/markets</code>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="ml-shell ml-blue-panel relative overflow-hidden">
+        <div className="absolute inset-0 opacity-20 ml-grid-bg" />
+        <div className="relative grid min-h-[520px] lg:grid-cols-[.85fr_1.15fr]">
+          <div className="border-b border-white/25 p-8 lg:border-b-0 lg:border-r lg:p-12">
+            <SectionTag>Integration boundary</SectionTag>
+            <h2 className="mt-8 max-w-xl text-5xl font-medium leading-[.95] tracking-[-.065em] text-white">Your market feed in. Intelligence out.</h2>
+          </div>
+          <div className="grid gap-px bg-white/20 sm:grid-cols-2">
+            <div className="bg-white/10 p-8 text-white"><Braces className="size-5" /><p className="mt-8 text-2xl tracking-[-.04em]">Read-only market metadata.</p></div>
+            <div className="bg-white/10 p-8 text-white"><ShieldCheck className="size-5" /><p className="mt-8 text-2xl tracking-[-.04em]">Guard, Watch and operator intelligence.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <MarketLintFooter />
+    </main>
+  );
 }
