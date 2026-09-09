@@ -52,6 +52,13 @@ export class MarketLint {
   getTenantPolicy() { return this.call("/api/v1/enterprise/policy"); }
   getWebhookStats() { return this.call("/api/v1/webhooks/stats"); }
   rotateApiKey(id: string) { return this.call("/api/v1/api-keys/rotate", { id }); }
+  activatePartnerPilot(pilotId: string) { return this.call(`/api/v1/pilots/${encodeURIComponent(pilotId)}/activate`, {}); }
+  getPartnerPilotStatus(pilotId: string) { return this.call(`/api/v1/pilots/${encodeURIComponent(pilotId)}/status`); }
+  ingestPartnerMarkets(markets: unknown[], autoWatch = true) { return this.call("/api/v1/partner/markets", { markets, autoWatch }); }
+  submitFeedback(input: { targetType: string; targetId: string; label: "USEFUL" | "EXPECTED" | "FALSE_POSITIVE" | "FALSE_NEGATIVE" | "AGREE" | "DISAGREE" | "UNCERTAIN"; comment?: string; algorithmVersion?: string }) { return this.call("/api/v1/feedback", input); }
+  createWebhook(url: string, description?: string) { return this.call("/api/v1/webhooks", { url, description }); }
+  getPilotMetrics(pilotId: string) { return this.call(`/api/v1/pilots/${encodeURIComponent(pilotId)}/report`); }
+  generatePilotReport(pilotId: string) { return this.call(`/api/v1/pilots/${encodeURIComponent(pilotId)}/report?generate=1`); }
   ask(question: string) { return this.call("/api/v1/ask", { question }); }
   getHistory(eventId: string) { return this.call(`/api/v1/feed/events/${eventId}`); }
   resolveMarketId(protocol: string, externalMarketId: string) { return this.call(`/api/v1/resolve-market-id?protocol=${encodeURIComponent(protocol)}&externalMarketId=${encodeURIComponent(externalMarketId)}`); }
