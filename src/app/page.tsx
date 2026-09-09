@@ -59,7 +59,7 @@ export default function Home() {
           </div>
 
           <div className="grid content-center gap-5 p-6 sm:p-10 lg:p-14">
-            <div className="ml-cut-card bg-white/95 p-6 text-[var(--ml-ink)] sm:p-8">
+            <div className="ml-cut-card ml-hero-verdict-card bg-white/95 p-6 text-[var(--ml-ink)] sm:p-8">
               <div className="flex items-start justify-between gap-8">
                 <div>
                   <span className="ml-eyebrow">EXAMPLE VERDICT</span>
@@ -78,8 +78,14 @@ export default function Home() {
               <p className="ml-copy mt-6 text-sm">Price source is not specified. Add an authoritative BTC-USD source and exact settlement timestamp before listing.</p>
             </div>
             <div className="grid gap-5 sm:grid-cols-2">
-              <div className="ml-cut-card bg-white/15 p-6 text-white backdrop-blur"><ScanLine className="size-5" /><p className="mt-8 text-2xl tracking-[-.045em]">Deterministic scoring with visible reasons.</p></div>
-              <div className="ml-cut-card bg-white/15 p-6 text-white backdrop-blur"><Activity className="size-5" /><p className="mt-8 text-2xl tracking-[-.045em]">No synthetic fallback when data is unavailable.</p></div>
+              <div className="ml-cut-card ml-blue-info-card p-6">
+                <span className="ml-blue-info-icon"><ScanLine className="size-5" /></span>
+                <p className="mt-8 text-2xl tracking-[-.045em]">Deterministic scoring with visible reasons.</p>
+              </div>
+              <div className="ml-cut-card ml-blue-info-card p-6">
+                <span className="ml-blue-info-icon"><Activity className="size-5" /></span>
+                <p className="mt-8 text-2xl tracking-[-.045em]">No synthetic fallback when data is unavailable.</p>
+              </div>
             </div>
           </div>
         </div>
