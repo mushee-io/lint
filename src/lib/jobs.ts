@@ -3,7 +3,8 @@ import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { ingestManifold, ingestPolymarket } from "@/lib/ingestion";
 import { refreshFreshness } from "@/lib/freshness";
-import { refreshConsensus, refreshWatches } from "@/lib/intelligence";
+import { refreshConsensus } from "@/lib/intelligence";
+import { refreshWatchEngine } from "@/lib/watch-engine";
 import { deliverPendingWebhooks } from "@/lib/webhooks";
 
 const json = (value: unknown) => value as Prisma.InputJsonValue;
@@ -87,7 +88,7 @@ async function runJob(job: { id: string; type: string; payload: unknown; attempt
     case "INGEST_POLYMARKET": return ingestPolymarket(typeof payload.limit === "number" ? payload.limit : DEFAULT_INGEST_LIMIT);
     case "INGEST_MANIFOLD": return ingestManifold(typeof payload.limit === "number" ? payload.limit : DEFAULT_INGEST_LIMIT);
     case "REFRESH_FRESHNESS": return refreshFreshness();
-    case "EVALUATE_WATCHES": return refreshWatches();
+    case "EVALUATE_WATCHES": return refreshWatchEngine();
     case "REFRESH_CONSENSUS": return refreshConsensus();
     case "DELIVER_WEBHOOKS": return deliverPendingWebhooks();
     default: throw new Error(`Unknown worker job type: ${job.type}`);
