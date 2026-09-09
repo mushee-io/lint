@@ -1,1 +1,8 @@
-import { bad,ok } from "@/lib/api"; import { markets } from "@/lib/graph"; import { evaluate,health,watch } from "@/lib/risk"; export async function POST(r:Request){try{const {marketId,kind}=await r.json(),m=markets.find(x=>x.id===marketId);if(!m)return bad("Market not found",404);const s=watch(m).snapshots.at(-1)!;const next=kind==="whale"?{probability:Math.min(.99,s.probability+.32),liquidity:s.liquidity,volume:s.volume+220000}:kind==="liquidity"?{probability:s.probability,liquidity:s.liquidity*.45,volume:s.volume}:{probability:s.probability,liquidity:s.liquidity,volume:s.volume+130000};return ok({signals:evaluate(m,next),health:health(m)})}catch{return bad("Invalid JSON")}}
+export async function POST() {
+  return Response.json({
+    error: {
+      message: "Synthetic simulation has been retired from the public demo.",
+      next: "/explore uses live public prediction-market data. Use /connect to validate a partner payload without persistence."
+    }
+  }, { status: 410 });
+}
