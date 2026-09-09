@@ -25,6 +25,7 @@ export default async function Protocol() {
     ["Operator dashboard", "/protocol/operator", true],
     ["Incident queue", "/protocol/incidents", true],
     ["Universal event graph", "/protocol/graph", true],
+    ["Consensus control center", "/protocol/consensus", true],
     ["Monitored markets", "/protocol/markets", false],
     ["Production validation", "/protocol/validation", false],
     ["Guard history", "/protocol/guard", false],
