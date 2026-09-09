@@ -24,6 +24,20 @@ Guard is the pre-listing risk gate. `POST /api/v1/guard` evaluates proposed mark
 
 Authenticated `auto`/`ai` mode can use the configured provider. Unauthenticated requests are deterministic only, so public traffic cannot spend AI credits. Authenticated reviews are persisted to `AuditLog`. See `docs/ai-reviewer.md`.
 
+## Operator Dashboard
+
+`/protocol/operator` is the live review queue. It ranks persisted markets by intelligence risk, surfaces weak/stale/undecided markets first, and supports title, protocol, freshness, and intelligence-status filters.
+
+`/protocol/markets/:id` is the operator workspace for a single market. It combines the full seven-dimension Market Intelligence report, grounded reviewer findings, evidence, recent snapshots, authenticated AI-review controls, and tenant-scoped operator history.
+
+Operators can record `APPROVE`, `HOLD`, or `REJECT` through:
+
+```text
+POST /api/v1/markets/:id/decision
+```
+
+The API requires `operator:decision`. Accepted decisions are persisted to `AuditLog` with a snapshot of the current deterministic intelligence state; they do not overwrite Market Lint's score or mutate the third-party source market. See `docs/operator-dashboard.md`.
+
 ## Run locally
 
 ```bash
@@ -43,7 +57,7 @@ The frontend still includes clearly labeled deterministic demo surfaces. Persist
 
 ## Database and durability
 
-PostgreSQL and Prisma persist organizations, roles, API keys, protocols, normalized markets, snapshots, provenance, canonical events, Watch registrations, Guard evaluations, risk signals, consensus snapshots, source freshness, worker jobs, webhook deliveries, pilots, metrics, feedback, reports, audit logs, and authenticated reviewer audit records.
+PostgreSQL and Prisma persist organizations, roles, API keys, protocols, normalized markets, snapshots, provenance, canonical events, Watch registrations, Guard evaluations, risk signals, consensus snapshots, source freshness, worker jobs, webhook deliveries, pilots, metrics, feedback, reports, audit logs, authenticated reviewer audit records, and operator decisions.
 
 ```bash
 npm run db:generate
@@ -62,18 +76,19 @@ The worker continuously schedules both public sources, freshness evaluation, Wat
 
 ## Protocol intelligence
 
-Core persistent endpoints include Guard, Market Intelligence, the grounded AI Reviewer, Watch, Signals, Consensus, webhooks, pilot metrics/reports, protocol workspaces, health, and readiness.
+Core persistent endpoints include Guard, Market Intelligence, the grounded AI Reviewer, operator decisions, Watch, Signals, Consensus, webhooks, pilot metrics/reports, protocol workspaces, health, and readiness.
 
 ```text
 POST /api/v1/guard
 GET  /api/v1/markets/:id/intelligence
 POST /api/v1/markets/:id/review
+POST /api/v1/markets/:id/decision
 POST /api/v1/watch
 GET  /api/v1/signals
 GET  /api/v1/events/:id/consensus
 ```
 
-`/protocol` shows durable operational values. `/protocol/pilot` is tenant-scoped by `MARKET_LINT_PILOT_ORG_ID` in the pilot deployment.
+`/protocol` shows durable operational values. `/protocol/operator` is the risk-ranked operator queue. `/protocol/pilot` is tenant-scoped by `MARKET_LINT_PILOT_ORG_ID` in the pilot deployment.
 
 For integration steps, see `docs/integration-quickstart.md`. Rain remains explicitly blocked until official feed/API details are supplied; see `docs/pilots/rain.md`.
 
