@@ -10,6 +10,14 @@
 
 Unavailable partner feeds are never replaced with synthetic data in persistent pilot mode.
 
+## Guard v2
+
+Guard is the pre-listing risk gate. `POST /api/v1/guard` evaluates proposed markets before listing and returns `ALLOW`, `REVIEW`, or `BLOCK`, a 0–100 Market Lint score, confidence, rule-level findings, duplicate risk, ambiguity risk, resolution risk, manipulation risk, reasons, warnings, and concrete repair suggestions. See `docs/guard.md`.
+
+## Market Intelligence
+
+`GET /api/v1/markets/:id/intelligence` analyzes an already-ingested market using seven evidence-backed dimensions: market structure, resolution readiness, data integrity, liquidity support, market history, event-graph context, and cross-protocol consensus. It returns a 0–100 intelligence score, grade, `STRONG` / `WATCH` / `WEAK` status, confidence, operator signals, and recommended actions. See `docs/market-intelligence.md`.
+
 ## Run locally
 
 ```bash
@@ -48,7 +56,7 @@ The worker continuously schedules both public sources, freshness evaluation, Wat
 
 ## Protocol intelligence
 
-Core persistent endpoints include Guard, Watch, Signals, Consensus, webhooks, pilot metrics/reports, protocol workspaces, health, and readiness. `/protocol` shows durable operational values. `/protocol/pilot` is tenant-scoped by `MARKET_LINT_PILOT_ORG_ID` in the pilot deployment.
+Core persistent endpoints include Guard, Market Intelligence, Watch, Signals, Consensus, webhooks, pilot metrics/reports, protocol workspaces, health, and readiness. `/protocol` shows durable operational values. `/protocol/pilot` is tenant-scoped by `MARKET_LINT_PILOT_ORG_ID` in the pilot deployment.
 
 For integration steps, see `docs/integration-quickstart.md`. Rain remains explicitly blocked until official feed/API details are supplied; see `docs/pilots/rain.md`.
 
@@ -83,7 +91,7 @@ Do not mark a pilot active until preflight passes. Deployment and operational re
 
 ## Demo and developer surfaces
 
-`/analyze`, `/explore`, `/terminal`, `/protocol/demo`, and the existing Rain demo remain useful product demonstrations. Demo or mocked views are labeled as such and must not be cited as evidence of a live partner integration. The API contract is exposed through the repository OpenAPI definition and the SDK source is in `packages/sdk`.
+`/analyze`, `/explore`, `/terminal`, `/protocol/demo`, and the existing Rain demo remain useful product demonstrations. Demo or mocked views are labeled as such and must not be cited as evidence of a live partner integration. The SDK source is in `packages/sdk`.
 
 ## License
 
